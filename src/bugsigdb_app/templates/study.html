@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% from "_macros.html" import exp_url, sig_url, dirbadge, condition_chips, filterbox %}
+{% block title %}{{ (s.title or s.name)|striptags }} · BugSigDB Explorer{% endblock %}
+{% block description %}{{ (s.title or s.name)|striptags }} ({{ s.year or 'n.d.' }}): {{ s.experiments|length }} experiments and {{ s.n_signatures }} microbial signatures curated in BugSigDB.{% endblock %}
+{% block main %}
+<article class="card-page">
+  <header class="taxon-head">
+    <div class="wrap">
+      <nav class="lineage" aria-label="Breadcrumb"><ol><li><a href="/studies">Studies</a></li><li aria-current="page">{{ s.study_id }}</li></ol></nav>
+      <p class="kicker">Study{% if s.design %} · {{ s.design }}{% endif %}</p>
+      <h1 class="doc-title">{{ (s.title or s.name)|rich }}</h1>
+      {% if s.authors %}<p class="byline" title="{{ s.authors }}">{{ s.authors|authors_short(6) }}</p>{% endif %}
+      <p class="taxon-ids">
+        {% if s.journal %}<span><i>{{ s.journal }}</i>{% if s.year %} {{ s.year }}{% endif %}</span>{% elif s.year %}<span>{{ s.year }}</span>{% endif %}
+        {% if s.pmid %}<a href="https://pubmed.ncbi.nlm.nih.gov/{{ s.pmid }}/">PubMed {{ s.pmid }} ↗</a>{% endif %}
+        {% if s.doi %}<a href="https://doi.org/{{ s.doi }}">DOI ↗</a>{% endif %}
+        <a href="{{ wiki(s.name) }}">BugSigDB ↗</a>
+        <a href="/api/studies/{{ s.study_id|urlq }}">JSON</a>
+      </p>
+      {% if s.keywords %}<ul class="kw">{% for k in s.keywords.split(',') if k.strip() %}<li>{{ k.strip() }}</li>{% endfor %}</ul>{% endif %}
+    </div>
+  </header>
+
+  <div class="wrap card-body">
+    <section class="panel" data-filtertable>
+      <div class="panel-head">
+        <h2>Experiments <small>{{ s.experiments|length }} · {{ s.n_signatures }} signatures</small></h2>
+        {% if s.experiments|length > 8 %}<div class="filters">{{ filterbox("Filter experiments…") }}</div>{% endif %}
+      </div>
+      <p class="hint">Each experiment compares two groups; each signature lists the taxa reported increased or decreased in the second group.</p>
+      <div class="table-wrap">
+        <table class="sigs">
+          <thead><tr><th scope="col">#</th><th scope="col">Comparison</th><th scope="col">Condition</th><th scope="col">Site</th><th scope="col">Method</th><th scope="col">Signatures</th></tr></thead>
+          <tbody>
+          {% for e in s.experiments %}
+            <tr>
+              <td><a href="{{ exp_url(s.study_id, e.experiment_id) }}">{{ e.experiment_id }}</a></td>
+              <td class="cmp"><a href="{{ exp_url(s.study_id, e.experiment_id) }}"><span>{{ e.group1 or '?' }}</span>{% if e.n1 %} <small>n={{ e.n1 }}</small>{% endif %} <small>vs</small> <span>{{ e.group0 or '?' }}</span>{% if e.n0 %} <small>n={{ e.n0 }}</small>{% endif %}</a></td>
+              <td>{{ condition_chips(e.conditions) }}</td>
+              <td>{{ e.body_site or '' }}</td>
+              <td class="muted">{{ e.sequencing_type or '' }}</td>
+              <td class="sigcell">
+                {% for g in e.signatures %}
+                <a href="{{ sig_url(s.study_id, e.experiment_id, g.signature_id) }}" class="sigpill">{{ dirbadge(g.direction) }} {{ g.taxa|length }} taxa</a>
+                {% else %}<span class="muted">none yet</span>{% endfor %}
+              </td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+</article>
+{% endblock %}

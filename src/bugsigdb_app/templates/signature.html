@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% from "_macros.html" import study_url, exp_url, sig_url, dirbadge, condition_chips %}
+{% set st = g.study %}{% set e = g.experiment %}
+{% block title %}{{ g.name }}: {{ g.direction or '' }} in {{ e.group1 or 'group 1' }} · {{ (st.title or st.name)|striptags }}{% endblock %}
+{% block description %}BugSigDB signature bsdb:{{ g.study_id }}/{{ g.experiment_id }}/{{ g.signature_id }}: {{ g.taxa|length }} taxa {{ g.direction or '' }} in {{ e.group1 or 'group 1' }} vs {{ e.group0 or 'group 0' }}.{% endblock %}
+{% block main %}
+<article class="card-page">
+  <header class="taxon-head">
+    <div class="wrap">
+      <nav class="lineage" aria-label="Breadcrumb"><ol>
+        <li><a href="/studies">Studies</a></li>
+        <li><a href="{{ study_url(st.study_id) }}" title="{{ st.title|striptags }}">{{ (st.title or st.name)|truncate(50)|rich }}</a></li>
+        <li><a href="{{ exp_url(st.study_id, g.experiment_id) }}">{{ e.name }}</a></li>
+        <li aria-current="page">{{ g.name }}</li>
+      </ol></nav>
+      <p class="kicker">Signature · bsdb:{{ g.study_id }}/{{ g.experiment_id }}/{{ g.signature_id }}</p>
+      <h1 class="doc-title">
+        {{ g.taxa|length }} tax{{ 'on' if g.taxa|length == 1 else 'a' }} {{ dirbadge(g.direction, long=true) }}
+        <span class="in">in {{ e.group1 or 'group 1' }}</span>
+      </h1>
+      <p class="byline">vs {{ e.group0 or 'group 0' }}{% if e.body_site %} · {{ e.body_site }}{% endif %}{% if e.sequencing_type %} · {{ e.sequencing_type }}{% endif %}{% if e.test %} · {{ e.test }}{% endif %}</p>
+      <p class="taxon-ids">
+        {{ condition_chips(g.conditions) }}
+        <a href="{{ wiki(st.name, e.name, g.name) }}">BugSigDB ↗</a>
+        <a href="/api/studies/{{ st.study_id|urlq }}/experiments/{{ g.experiment_id }}/signatures/{{ g.signature_id }}">JSON</a>
+      </p>
+    </div>
+  </header>
+
+  <div class="wrap card-body">
+    {% if g.description or g.source %}
+    <p class="defn">{% if g.source %}<b>{{ g.source }}.</b> {% endif %}{{ g.description or '' }}</p>
+    {% endif %}
+
+    <section class="panel">
+      <div class="panel-head"><h2>Taxa</h2><p class="legend">ranked by how many BugSigDB signatures name them</p></div>
+      <ul class="taxlist">
+        {% for x in g.taxa %}
+        <li><a href="/taxon/{{ x.tax_id }}"><span class="tax{{ ' it' if x.rank in ITALIC_RANKS }}">{{ x.name }}</span></a>{% if x.rank %} <span class="rank rank-{{ x.rank }}">{{ x.rank }}</span>{% endif %}<span class="n">{{ x.n_signatures|num }}</span></li>
+        {% else %}<li class="muted">No taxa recorded.</li>{% endfor %}
+      </ul>
+    </section>
+
+    {% if g.similar %}
+    <section class="panel">
+      <div class="panel-head"><h2>Similar signatures</h2><p class="legend">by shared taxa (Jaccard)</p></div>
+      <div class="table-wrap">
+        <table class="sigs">
+          <thead><tr><th scope="col"></th><th scope="col">Similarity</th><th scope="col">Condition</th><th scope="col">Study</th></tr></thead>
+          <tbody>
+          {% for x in g.similar %}
+          <tr>
+            <td>{{ dirbadge(x.direction) }}</td>
+            <td class="simcell"><span class="hbar"><span style="width: {{ (100 * x.jaccard)|round(1) }}%"></span></span><small>{{ x.shared }} shared · {{ '%.2f'|format(x.jaccard) }}</small></td>
+            <td>{{ (x.condition or '—')|commas }}</td>
+            <td class="study"><a href="{{ sig_url(x.study_id, x.experiment_id, x.signature_id) }}">{{ (x.title or x.study_id)|truncate(70)|rich }}</a><small>{{ x.year or '' }} · bsdb:{{ x.study_id }}/{{ x.experiment_id }}/{{ x.signature_id }}</small></td>
+          </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+    {% endif %}
+
+    <p class="curation muted">Curated{% if g.curator %} by {{ g.curator }}{% endif %}{% if g.curated_date %} on {{ g.curated_date }}{% endif %}{% if g.reviewer %}; reviewed by {{ g.reviewer }}{% endif %}{% if g.state %} · {{ g.state }}{% endif %}.</p>
+  </div>
+</article>
+{% endblock %}

@@ -1,6 +1,10 @@
 """Load the public BugSigDB and bugphyzz exports into Postgres.
 
-Builds everything in a `staging` schema, then swaps it in as `bsdb` in one
+BugSigDB's full_dump has one row per signature, with its experiment and study
+columns repeated (and one row per experiment that has no signature yet). The
+loader splits that into study, experiment, signature and condition tables.
+
+Everything is built in a `staging` schema, then swapped in as `bsdb` in one
 transaction, so readers never see a half-loaded database.
 
     python -m bugsigdb_app.load
@@ -10,6 +14,8 @@ import asyncio
 import csv
 import io
 import os
+import re
+from collections import Counter, defaultdict
 
 import asyncpg
 import httpx
@@ -21,7 +27,37 @@ BUGPHYZZ_KINDS = ("binary", "multistate", "numeric")
 RANKS = {"k": "kingdom", "p": "phylum", "c": "class", "o": "order",
          "f": "family", "g": "genus", "s": "species", "t": "strain"}
 
-SCHEMA = """
+# table column -> full_dump header. Order here is column order in the table.
+STUDY_COLS = {
+    "name": "Study", "pmid": "PMID", "doi": "DOI", "url": "URL", "title": "Title",
+    "authors": "Authors list", "journal": "Journal", "year": "Year", "keywords": "Keywords",
+    "design": "Study design",
+}
+EXPERIMENT_COLS = {
+    "name": "Experiment", "host_species": "Host species", "location": "Location of subjects",
+    "body_site": "Body site", "uberon_id": "UBERON ID", "condition": "Condition",
+    "group0": "Group 0 name", "group1": "Group 1 name", "group1_definition": "Group 1 definition",
+    "n0": "Group 0 sample size", "n1": "Group 1 sample size",
+    "antibiotics_exclusion": "Antibiotics exclusion", "sequencing_type": "Sequencing type",
+    "region_16s": "16S variable region", "platform": "Sequencing platform",
+    "transformation": "Data transformation", "test": "Statistical test",
+    "threshold": "Significance threshold", "mht": "MHT correction", "lda": "LDA Score above",
+    "matched_on": "Matched on", "confounders": "Confounders controlled for",
+    "pielou": "Pielou", "shannon": "Shannon", "chao1": "Chao1", "simpson": "Simpson",
+    "inverse_simpson": "Inverse Simpson", "richness": "Richness",
+}
+SIGNATURE_COLS = {
+    "name": "Signature page name", "direction": "Abundance in Group 1", "source": "Source",
+    "description": "Description", "curated_date": "Curated date", "curator": "Curator",
+    "revision_editor": "Revision editor", "reviewer": "Reviewer", "state": "State",
+}
+
+
+def cols(d: dict[str, str]) -> str:
+    return ", ".join(f"{c} text" for c in d)
+
+
+SCHEMA = f"""
 create table taxon (
     tax_id integer primary key,
     name text not null,
@@ -38,12 +74,20 @@ create table taxon_ancestor (  -- closure: every (taxon, ancestor-or-self) pair
     depth integer not null,  -- 0 = self
     primary key (ancestor_id, tax_id)
 );
+create table study (study_id text primary key, {cols(STUDY_COLS)});
+create table experiment (
+    study_id text not null, experiment_id integer not null, {cols(EXPERIMENT_COLS)},
+    primary key (study_id, experiment_id)
+);
+create table condition (ontology_id text primary key, name text not null);
+create table experiment_condition (
+    study_id text not null, experiment_id integer not null, ontology_id text not null,
+    primary key (study_id, experiment_id, ontology_id)
+);
 create table signature (
     bsdb_id text primary key,
-    study text, pmid text, doi text, title text, year text,
-    experiment text, host_species text, body_site text, condition text,
-    group0 text, group1 text, direction text,
-    signature text, source text, description text, state text
+    study_id text not null, experiment_id integer not null, signature_id integer not null,
+    {cols(SIGNATURE_COLS)}
 );
 create table signature_taxon (
     bsdb_id text not null,
@@ -63,11 +107,25 @@ create table trait (
 );
 """
 
-INDEXES = """
+POST = """
 create index on taxon (parent_id);
+create index on taxon (lower(name) text_pattern_ops);
 create index on taxon_ancestor (tax_id);
+create index on signature (study_id, experiment_id);
+create index on signature_taxon (tax_id);
+create index on experiment_condition (ontology_id);
+create index on trait (tax_id);
+-- signature with its experiment and study columns, as the taxon card reads them
+create view signature_full as
+    select s.bsdb_id, s.study_id, s.experiment_id, s.signature_id, s.name as signature,
+           s.direction, s.source, s.description, s.state,
+           st.name as study, st.pmid, st.doi, st.title, st.year,
+           e.name as experiment, e.host_species, e.body_site, e.condition, e.group0, e.group1
+    from signature s
+    join experiment e using (study_id, experiment_id)
+    join study st using (study_id);
 update taxon t set n_signatures = s.n, n_studies = s.k, n_increased = s.up, n_decreased = s.down from (
-    select a.ancestor_id, count(distinct st.bsdb_id) as n, count(distinct sg.study) as k,
+    select a.ancestor_id, count(distinct st.bsdb_id) as n, count(distinct sg.study_id) as k,
            count(distinct st.bsdb_id) filter (where sg.direction = 'increased') as up,
            count(distinct st.bsdb_id) filter (where sg.direction = 'decreased') as down
     from signature_taxon st
@@ -75,30 +133,42 @@ update taxon t set n_signatures = s.n, n_studies = s.k, n_increased = s.up, n_de
     join signature sg using (bsdb_id)
     group by a.ancestor_id
 ) s where s.ancestor_id = t.tax_id;
-create index on taxon (lower(name) text_pattern_ops);
-create index on signature_taxon (tax_id);
-create index on trait (tax_id);
 """
 
 COLUMNS = {"taxon": ["tax_id", "name", "rank", "parent_id"]}  # rest are computed
 
-SIGNATURE_COLS = {
-    "bsdb_id": "BSDB ID", "study": "Study", "pmid": "PMID", "doi": "DOI",
-    "title": "Title", "year": "Year", "experiment": "Experiment",
-    "host_species": "Host species", "body_site": "Body site",
-    "condition": "Condition", "group0": "Group 0 name", "group1": "Group 1 name",
-    "direction": "Abundance in Group 1", "signature": "Signature page name",
-    "source": "Source", "description": "Description", "state": "State",
-}
 
-
-def na(v: str) -> str | None:
-    return None if v in ("", "NA") else v
+def na(v: str | None) -> str | None:
+    return None if v in (None, "", "NA") else v
 
 
 def read_csv(text: str) -> list[dict[str, str]]:
     """Both exports put a `# ...` provenance line above the header."""
     return list(csv.DictReader(line for line in io.StringIO(text) if not line.startswith("#")))
+
+
+def parse_bsdb_id(bsdb_id: str) -> tuple[str, int, int | None]:
+    """'bsdb:11/1/1' -> ('11', 1, 1); 'bsdb:34963452/2/NA' (experiment with no signature) -> (..., 2, None).
+
+    The study part is usually a PMID or old serial number, but can be any text
+    ('10.31083 CEOG44510'); it never contains '/'.
+    """
+    study, experiment, signature = bsdb_id.removeprefix("bsdb:").rsplit("/", 2)
+    return study, int(experiment), None if signature == "NA" else int(signature)
+
+
+def parse_conditions(names: str, ids: str) -> list[tuple[str, str]]:
+    """Aligned (ontology_id, name) pairs. Lists are joined by ',' with no space;
+    a ', ' is part of a name ('Hepatitis, Alcoholic')."""
+    if na(ids) is None:
+        return []
+    id_list = [i.strip() for i in ids.split(",")]
+    name_list = [n.strip() for n in re.split(r",(?!\s)", names or "")]
+    if len(id_list) == 1:
+        name_list = [(names or "").strip()]
+    if len(id_list) != len(name_list):
+        name_list = [""] * len(id_list)  # unalignable: keep the IDs, name them from other rows
+    return list(zip(id_list, name_list))
 
 
 def parse_taxa(ids: str, names: str) -> list[list[tuple[int, str, str | None]]]:
@@ -121,13 +191,30 @@ def parse_taxa(ids: str, names: str) -> list[list[tuple[int, str, str | None]]]:
     return paths
 
 
-def build_bsdb(rows: list[dict[str, str]]):
+def build_bsdb(rows: list[dict[str, str]]) -> dict[str, list[tuple]]:
+    """Split full_dump rows into one record list per table."""
     taxa: dict[int, tuple] = {}
+    studies: dict[str, tuple] = {}
+    experiments: dict[tuple[str, int], tuple] = {}
+    exp_conditions: set[tuple] = set()
+    condition_names: dict[str, Counter] = defaultdict(Counter)
     signatures, links = [], set()
     for r in rows:
-        if r["BSDB ID"].endswith("/NA"):
-            continue  # experiment row with no signature (and taxa "NA")
-        signatures.append(tuple(na(r[c]) for c in SIGNATURE_COLS.values()))
+        study_id, experiment_id, signature_id = parse_bsdb_id(r["BSDB ID"])
+        # ponytail: first row wins for study and experiment columns (they never differ in the dump)
+        studies.setdefault(study_id, (study_id, *(na(r[c]) for c in STUDY_COLS.values())))
+        if (study_id, experiment_id) not in experiments:
+            experiments[study_id, experiment_id] = (
+                study_id, experiment_id, *(na(r[c]) for c in EXPERIMENT_COLS.values()))
+            for oid, name in parse_conditions(r["Condition"], r["EFO ID"]):
+                exp_conditions.add((study_id, experiment_id, oid))
+                names = condition_names[oid]  # created even when the name is unknown
+                if name:
+                    names[name] += 1
+        if signature_id is None:
+            continue
+        signatures.append((r["BSDB ID"], study_id, experiment_id, signature_id,
+                           *(na(r[c]) for c in SIGNATURE_COLS.values())))
         for path in parse_taxa(r["NCBI Taxonomy IDs"], r["MetaPhlAn taxon names"]):
             parent = None
             for tax_id, name, rank in path:
@@ -135,7 +222,18 @@ def build_bsdb(rows: list[dict[str, str]]):
                 taxa.setdefault(tax_id, (tax_id, name, rank, parent))
                 parent = tax_id
             links.add((r["BSDB ID"], path[-1][0]))
-    return list(taxa.values()), signatures, sorted(links)
+    # an ID's display name is its most common one (a few rows pair IDs with the wrong name)
+    conditions = [(oid, names.most_common(1)[0][0] if names else oid)
+                  for oid, names in condition_names.items()]
+    return {
+        "taxon": list(taxa.values()),
+        "study": list(studies.values()),
+        "experiment": list(experiments.values()),
+        "condition": conditions,
+        "experiment_condition": sorted(exp_conditions),
+        "signature": signatures,
+        "signature_taxon": sorted(links),
+    }
 
 
 def closure(taxa: list[tuple]) -> list[tuple[int, int, int]]:
@@ -173,25 +271,24 @@ async def main() -> None:
     async with httpx.AsyncClient(follow_redirects=True, timeout=120) as client:
         texts = await asyncio.gather(fetch(client, BSDB_DUMP),
                                      *(fetch(client, BUGPHYZZ.format(k)) for k in BUGPHYZZ_KINDS))
-    taxa, signatures, links = build_bsdb(read_csv(texts[0]))
-    keep = {t[0] for t in taxa}
-    traits = [t for text in texts[1:] for t in build_traits(read_csv(text), keep)]
+    tables = build_bsdb(read_csv(texts[0]))
+    tables["taxon_ancestor"] = closure(tables["taxon"])
+    keep = {t[0] for t in tables["taxon"]}
+    tables["trait"] = [t for text in texts[1:] for t in build_traits(read_csv(text), keep)]
 
     conn = await asyncpg.connect(os.environ["DATABASE_URL"])
     try:
         async with conn.transaction():
             await conn.execute("drop schema if exists staging cascade; create schema staging; set search_path = staging")
             await conn.execute(SCHEMA)
-            for table, records in [("taxon", taxa), ("taxon_ancestor", closure(taxa)),
-                                   ("signature", signatures),
-                                   ("signature_taxon", links), ("trait", traits)]:
+            for table, records in tables.items():
                 await conn.copy_records_to_table(table, records=records, schema_name="staging",
-                                                columns=COLUMNS.get(table))
-            await conn.execute(INDEXES)
+                                                 columns=COLUMNS.get(table))
+            await conn.execute(POST)
             await conn.execute("drop schema if exists bsdb cascade; alter schema staging rename to bsdb")
     finally:
         await conn.close()
-    print(f"loaded {len(taxa)} taxa, {len(signatures)} signatures, {len(links)} links, {len(traits)} traits")
+    print(", ".join(f"{len(v)} {k}" for k, v in tables.items()))
 
 
 if __name__ == "__main__":

@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}BugSigDB Explorer{% endblock %}</title>
   <meta name="description" content="{% block description %}Microbial signatures from BugSigDB and traits from bugphyzz, organized by taxon.{% endblock %}">
-  <link rel="stylesheet" href="/static/app.css?v=3">
+  <link rel="stylesheet" href="/static/app.css?v=10">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🦠</text></svg>">
-  <script src="/static/app.js?v=2" defer></script>
+  <script src="/static/app.js?v=3" defer></script>
 </head>
 <body>
   <a class="skip" href="#main">Skip to content</a>
@@ -21,6 +21,8 @@
       </form>
       {% endblock %}
       <nav class="topnav" aria-label="Main">
+        <a href="/studies">Studies</a>
+        <a href="/conditions">Conditions</a>
         <a href="/api/docs">API</a>
         <a href="/#connect">MCP</a>
       </nav>

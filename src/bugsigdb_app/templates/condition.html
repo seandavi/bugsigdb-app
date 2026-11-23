@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% from "_macros.html" import study_url, filterbox %}
+{% block title %}{{ c.name }} · BugSigDB Explorer{% endblock %}
+{% block description %}{{ c.name }} ({{ c.ontology_id }}): {{ c.n_signatures }} microbial signatures from {{ c.n_studies }} studies in BugSigDB, and the taxa most consistently increased or decreased.{% endblock %}
+{% block main %}
+<article class="card-page">
+  <header class="taxon-head">
+    <div class="wrap">
+      <nav class="lineage" aria-label="Breadcrumb"><ol><li><a href="/conditions">Conditions</a></li><li aria-current="page">{{ c.ontology_id }}</li></ol></nav>
+      <p class="kicker">Condition</p>
+      <h1 class="doc-title">{{ c.name }}</h1>
+      <p class="taxon-ids">
+        <b>{{ c.ontology_id }}</b>
+        <a href="https://www.ebi.ac.uk/ols4/search?q={{ c.ontology_id|urlq }}">Ontology ↗</a>
+        <a href="/api/conditions/{{ c.ontology_id|urlq }}">JSON</a>
+      </p>
+    </div>
+  </header>
+
+  <nav class="sections" aria-label="On this page">
+    <div class="wrap">
+      <a href="#summary">Summary</a>
+      {% if c.taxa %}<a href="#taxa">Taxa <small>{{ c.n_taxa|num }}</small></a>{% endif %}
+      <a href="#studies">Studies <small>{{ c.n_studies|num }}</small></a>
+    </div>
+  </nav>
+
+  <div class="wrap card-body">
+    <section id="summary" class="tiles">
+      <div class="tile"><b>{{ c.n_studies|num }}</b><span>studies</span></div>
+      <div class="tile"><b>{{ c.n_experiments|num }}</b><span>experiments</span></div>
+      <div class="tile"><b>{{ c.n_signatures|num }}</b><span>signatures</span></div>
+      {% if c.body_sites %}
+      <div class="tile tile-wide">
+        <span>Body sites (experiments)</span>
+        <ul class="hbars">
+          {% for b in c.body_sites[:5] %}
+          <li><span class="hbar-label">{{ b.body_site }}</span><span class="hbar"><span style="width: {{ (100 * b.n / max_site)|round(1) }}%"></span></span><span class="hbar-n">{{ b.n|num }}</span></li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+    </section>
+
+    {% if c.taxa %}
+    <section id="taxa" class="panel" data-filtertable>
+      <div class="panel-head">
+        <h2>Taxa</h2>
+        <div class="filters">{{ filterbox("Filter taxa…", "tf-taxa") }}</div>
+      </div>
+      <p class="hint">Taxa named in at least two signatures for this condition, ranked by how consistently they move one way
+        (two-sided sign test of increased vs decreased signatures; not corrected for multiple testing, and signatures from one study are not independent).
+        Counts are taxa as curated, without roll-up to parent taxa. {% if c.n_taxa > c.taxa|length %}Top {{ c.taxa|length }} of {{ c.n_taxa|num }}.{% endif %}</p>
+      <div class="table-wrap">
+        <table class="sigs ctaxa">
+          <thead><tr><th scope="col">Taxon</th><th scope="col" class="dvh"><span class="down">◀ decreased</span> <span class="up">increased ▶</span></th><th scope="col" class="num">Studies</th><th scope="col" class="num">p</th></tr></thead>
+          <tbody>
+          {% for t in c.taxa %}
+          <tr>
+            <td><a href="/taxon/{{ t.tax_id }}" class="tax{{ ' it' if t.rank in ITALIC_RANKS }}">{{ t.name }}</a> <span class="rank rank-{{ t.rank }}">{{ t.rank }}</span></td>
+            <td class="dvcell">
+              <span class="dv-bars">
+                <span class="dv-side dv-down">{% if t.decreased %}<i>{{ t.decreased }}</i>{% endif %}<span class="bar" style="width: {{ (85 * t.decreased / scale)|round(1) }}%"></span></span>
+                <span class="dv-side dv-up"><span class="bar" style="width: {{ (85 * t.increased / scale)|round(1) }}%"></span>{% if t.increased %}<i>{{ t.increased }}</i>{% endif %}</span>
+              </span>
+            </td>
+            <td class="num">{{ t.studies }}</td>
+            <td class="num{{ ' strong' if t.p < 0.01 }}">{{ t.p|pfmt }}</td>
+          </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+    {% endif %}
+
+    <section id="studies" class="panel" data-filtertable>
+      <div class="panel-head">
+        <h2>Studies</h2>
+        {% if c.studies|length > 10 %}<div class="filters">{{ filterbox("Filter studies…", "tf-studies") }}</div>{% endif %}
+      </div>
+      <div class="table-wrap">
+        <table class="sigs">
+          <thead><tr><th scope="col">Study</th><th scope="col" class="num">Year</th><th scope="col" class="num">Experiments</th><th scope="col" class="num">Signatures</th></tr></thead>
+          <tbody>
+          {% for s in c.studies %}
+          <tr>
+            <td class="study"><a href="{{ study_url(s.study_id) }}">{{ (s.title or s.name)|rich }}</a>{% if s.pmid %}<small>PMID {{ s.pmid }}</small>{% endif %}</td>
+            <td class="num">{{ s.year or '' }}</td>
+            <td class="num">{{ s.n_experiments }}</td>
+            <td class="num">{{ s.n_signatures }}</td>
+          </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+</article>
+{% endblock %}

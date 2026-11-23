@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% from "_macros.html" import filterbox %}
+{% block title %}Conditions · BugSigDB Explorer{% endblock %}
+{% block main %}
+<div class="wrap page">
+  <section class="panel" data-filtertable>
+    <div class="panel-head">
+      <h1 class="page-title flush">Conditions <small>{{ conditions|length|num }}</small></h1>
+      <div class="filters">{{ filterbox("Filter by name or ID…") }}</div>
+    </div>
+    <p class="hint" data-count>Experimental factors and diseases (EFO, MONDO and other ontology terms) that BugSigDB experiments compare, by number of signatures.</p>
+    <div class="table-wrap">
+      <table class="sigs">
+        <thead><tr><th scope="col">Condition</th><th scope="col">Ontology ID</th><th scope="col" class="num">Studies</th><th scope="col" class="num">Experiments</th><th scope="col" class="num">Signatures</th></tr></thead>
+        <tbody>
+        {% for c in conditions %}
+        <tr>
+          <td><a href="/condition/{{ c.ontology_id|urlq }}">{{ c.name }}</a></td>
+          <td class="muted mono">{{ c.ontology_id }}</td>
+          <td class="num">{{ c.n_studies|num }}</td>
+          <td class="num">{{ c.n_experiments|num }}</td>
+          <td class="num">{{ c.n_signatures|num }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+{% endblock %}

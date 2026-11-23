@@ -7,8 +7,10 @@ Design: #1. A loader fetches the public BugSigDB and bugphyzz exports into
 Postgres; one FastAPI app serves HTML pages, REST (`/api`) and MCP (`/mcp`) over the
 same query functions (`src/bugsigdb_app/queries.py`).
 
-Live proof of concept: https://bugsigdb-poc.cancerdatasci.org (taxon pages,
-search; REST docs at `/api/docs`).
+Live proof of concept: https://bugsigdb-poc.cancerdatasci.org. Pages for
+taxa, studies, experiments, signatures and conditions; REST docs at
+`/api/docs`; MCP tools listed on the home page. Read-only: BugSigDB's wiki is
+the source of truth and every load replaces the database.
 (`/api/taxa?q=akkermansia`, `/api/taxa/239934`, MCP at `/mcp`).
 
 ## Develop

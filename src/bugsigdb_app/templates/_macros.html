@@ -26,3 +26,29 @@
   {{ split(t.n_increased, t.n_decreased, label=false) }}
 </a>
 {%- endmacro %}
+
+{% macro study_url(study_id) %}/study/{{ study_id|urlq }}{% endmacro %}
+{% macro exp_url(study_id, experiment_id) %}/study/{{ study_id|urlq }}/experiment/{{ experiment_id }}{% endmacro %}
+{% macro sig_url(study_id, experiment_id, signature_id) %}/study/{{ study_id|urlq }}/experiment/{{ experiment_id }}/signature/{{ signature_id }}{% endmacro %}
+
+{% macro dirbadge(d, long=false) -%}
+{%- if d == 'increased' %}<span class="dirb up">▲{% if long %} increased{% endif %}</span>
+{%- elif d == 'decreased' %}<span class="dirb down">▼{% if long %} decreased{% endif %}</span>
+{%- else %}<span class="dirb na">{{ '?' if not long else 'direction not recorded' }}</span>{% endif -%}
+{%- endmacro %}
+
+{% macro taxa_chips(taxa, max=24) -%}
+<ul class="chips chips-sm">
+  {% for x in taxa[:max] %}<li><a href="/taxon/{{ x.tax_id }}"><span class="tax{{ ' it' if x.rank in ITALIC_RANKS }}">{{ x.name }}</span></a></li>{% endfor %}
+  {% if taxa|length > max %}<li class="more">+{{ taxa|length - max }} more</li>{% endif %}
+</ul>
+{%- endmacro %}
+
+{% macro condition_chips(conds) -%}
+{% for c in conds %}<a class="cchip" href="/condition/{{ c.ontology_id|urlq }}">{{ c.name }}</a>{% endfor %}
+{%- endmacro %}
+
+{% macro filterbox(placeholder, id="tf") -%}
+<label class="sr-only" for="{{ id }}">{{ placeholder }}</label>
+<input id="{{ id }}" type="search" placeholder="{{ placeholder }}" data-filter>
+{%- endmacro %}

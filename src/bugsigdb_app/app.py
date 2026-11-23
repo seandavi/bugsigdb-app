@@ -22,8 +22,12 @@ def pool() -> asyncpg.Pool:
 
 mcp = MCPServer(
     "bugsigdb",
-    instructions="BugSigDB microbial signatures and bugphyzz traits, organized by NCBI taxon. "
-    "Use search_taxa to find a tax_id, then get_taxon for its card.",
+    instructions="BugSigDB: published microbiome signatures (sets of taxa reported increased or decreased "
+    "in a case group vs a control group), with bugphyzz traits for each taxon. "
+    "Hierarchy: study > experiment (one comparison: condition, body site, groups) > signature (direction + taxa). "
+    "Find taxa with search_taxa, studies with search_studies, conditions with search_conditions. "
+    "get_condition ranks taxa by how consistently they go up or down in that condition (sign test). "
+    "Study IDs are usually PMIDs; signature IDs look like bsdb:<study>/<experiment>/<signature>.",
 )
 
 
@@ -37,6 +41,42 @@ async def search_taxa(q: str, limit: int = 20) -> list[dict[str, Any]]:
 async def get_taxon(tax_id: int, signature_limit: int = 100) -> dict[str, Any] | None:
     """Taxon card: lineage, children, BugSigDB signatures (own and descendants'), bugphyzz traits."""
     return await queries.get_taxon(pool(), tax_id, signature_limit)
+
+
+@mcp.tool()
+async def search_studies(q: str = "", limit: int = 20, offset: int = 0) -> list[dict[str, Any]]:
+    """Find studies by text in title, authors, journal, PMID or DOI; newest first."""
+    return await queries.search_studies(pool(), q, limit, offset)
+
+
+@mcp.tool()
+async def get_study(study_id: str) -> dict[str, Any] | None:
+    """A study (usually keyed by PMID) with all its experiments and their signatures' taxa."""
+    return await queries.get_study(pool(), study_id)
+
+
+@mcp.tool()
+async def get_experiment(study_id: str, experiment_id: int) -> dict[str, Any] | None:
+    """One experiment: compared groups and sizes, condition, body site, methods, diversity, signatures with taxa."""
+    return await queries.get_experiment(pool(), study_id, experiment_id)
+
+
+@mcp.tool()
+async def get_signature(study_id: str, experiment_id: int, signature_id: int) -> dict[str, Any] | None:
+    """One signature (bsdb:<study>/<experiment>/<signature>): direction, taxa, context, and similar signatures."""
+    return await queries.get_signature(pool(), study_id, experiment_id, signature_id)
+
+
+@mcp.tool()
+async def search_conditions(q: str = "", limit: int = 50) -> list[dict[str, Any]]:
+    """Find conditions (EFO/MONDO terms) by name or ontology ID, with study and signature counts."""
+    return await queries.list_conditions(pool(), q, limit)
+
+
+@mcp.tool()
+async def get_condition(ontology_id: str, taxa_limit: int = 50) -> dict[str, Any] | None:
+    """A condition's studies, body sites, and taxa ranked by consistency of direction (sign-test p)."""
+    return await queries.get_condition(pool(), ontology_id, taxa_limit)
 
 
 # DNS-rebinding protection: allow only the hosts we actually serve on.
@@ -66,17 +106,50 @@ app.include_router(web.router)
 app.mount("/static", StaticFiles(directory=web.HERE / "static"), name="static")
 
 
-@app.get("/api/taxa")
+def found(x, what: str):
+    if x is None:
+        raise HTTPException(404, f"{what} not found")
+    return x
+
+
+@app.get("/api/taxa", tags=["taxa"])
 async def api_search_taxa(q: str, limit: int = 20):
     return await queries.search_taxa(pool(), q, min(limit, 200))
 
 
-@app.get("/api/taxa/{tax_id}")
+@app.get("/api/taxa/{tax_id}", tags=["taxa"])
 async def api_get_taxon(tax_id: int, signature_limit: int = 100):
-    card = await queries.get_taxon(pool(), tax_id, min(signature_limit, 1000))
-    if card is None:
-        raise HTTPException(404, "taxon not in BugSigDB")
-    return card
+    return found(await queries.get_taxon(pool(), tax_id, min(signature_limit, 1000)), "taxon")
+
+
+@app.get("/api/studies", tags=["studies"])
+async def api_search_studies(q: str = "", limit: int = 50, offset: int = 0):
+    return await queries.search_studies(pool(), q, min(limit, 500), offset)
+
+
+@app.get("/api/studies/{study_id}", tags=["studies"])
+async def api_get_study(study_id: str):
+    return found(await queries.get_study(pool(), study_id), "study")
+
+
+@app.get("/api/studies/{study_id}/experiments/{experiment_id}", tags=["studies"])
+async def api_get_experiment(study_id: str, experiment_id: int):
+    return found(await queries.get_experiment(pool(), study_id, experiment_id), "experiment")
+
+
+@app.get("/api/studies/{study_id}/experiments/{experiment_id}/signatures/{signature_id}", tags=["studies"])
+async def api_get_signature(study_id: str, experiment_id: int, signature_id: int):
+    return found(await queries.get_signature(pool(), study_id, experiment_id, signature_id), "signature")
+
+
+@app.get("/api/conditions", tags=["conditions"])
+async def api_list_conditions(q: str = "", limit: int = 2000):
+    return await queries.list_conditions(pool(), q, limit)
+
+
+@app.get("/api/conditions/{ontology_id}", tags=["conditions"])
+async def api_get_condition(ontology_id: str, taxa_limit: int = 150, min_signatures: int = 2):
+    return found(await queries.get_condition(pool(), ontology_id, taxa_limit, min_signatures), "condition")
 
 
 @app.get("/healthz")

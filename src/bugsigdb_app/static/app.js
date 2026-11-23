@@ -64,18 +64,19 @@ function suggest(input) {
   input.addEventListener("blur", () => setTimeout(close, 100));
 }
 
-// Signature table: text filter, direction segment, "this taxon only" toggle.
-function sigtable(root) {
+// Filterable tables ([data-sigtable] or [data-filtertable]): text filter, plus on the taxon
+// card a direction segment and a "this taxon only" toggle. All controls are optional.
+function filterable(root) {
   const rows = [...root.querySelectorAll("tbody tr")];
   const text = rows.map((r) => r.textContent.toLowerCase());
   const q = root.querySelector("[data-filter]");
   const direct = root.querySelector("[data-direct]");
   const count = root.querySelector("[data-count]");
-  const original = count.innerHTML;
-  const buttons = [...root.querySelectorAll("[data-dir]")].filter((b) => b.tagName === "BUTTON");
+  const original = count && count.innerHTML;
+  const buttons = [...root.querySelectorAll("button[data-dir]")];
   let dir = "";
   const apply = () => {
-    const needle = q.value.trim().toLowerCase();
+    const needle = q ? q.value.trim().toLowerCase() : "";
     let shown = 0;
     rows.forEach((r, i) => {
       const ok = (!needle || text[i].includes(needle))
@@ -84,10 +85,12 @@ function sigtable(root) {
       r.hidden = !ok;
       shown += ok;
     });
-    const filtered = needle || dir || (direct && direct.checked);
-    count.innerHTML = filtered ? `${shown.toLocaleString()} of ${rows.length.toLocaleString()} shown signatures match.` : original;
+    if (count) {
+      const filtered = needle || dir || (direct && direct.checked);
+      count.innerHTML = filtered ? `${shown.toLocaleString()} of ${rows.length.toLocaleString()} rows match.` : original;
+    }
   };
-  q.addEventListener("input", apply);
+  if (q) q.addEventListener("input", apply);
   if (direct) direct.addEventListener("change", apply);
   buttons.forEach((b) => b.addEventListener("click", () => {
     dir = b.dataset.dir;
@@ -97,4 +100,4 @@ function sigtable(root) {
 }
 
 document.querySelectorAll("[data-suggest]").forEach(suggest);
-document.querySelectorAll("[data-sigtable]").forEach(sigtable);
+document.querySelectorAll("[data-sigtable], [data-filtertable]").forEach(filterable);

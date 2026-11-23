@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% from "_macros.html" import study_url, exp_url, sig_url, dirbadge, taxa_chips, condition_chips %}
+{% set st = e.study %}
+{% block title %}{{ e.group1 or 'Group 1' }} vs {{ e.group0 or 'Group 0' }} · {{ (st.title or st.name)|striptags }}{% endblock %}
+{% block main %}
+<article class="card-page">
+  <header class="taxon-head">
+    <div class="wrap">
+      <nav class="lineage" aria-label="Breadcrumb"><ol>
+        <li><a href="/studies">Studies</a></li>
+        <li><a href="{{ study_url(st.study_id) }}" title="{{ st.title|striptags }}">{{ (st.title or st.name)|truncate(60)|rich }}</a></li>
+        <li aria-current="page">{{ e.name }}</li>
+      </ol></nav>
+      <p class="kicker">Experiment {{ e.experiment_id }}{% if e.host_species %} · <i>{{ e.host_species }}</i>{% endif %}{% if e.body_site %} · {{ e.body_site }}{% endif %}</p>
+      <h1 class="doc-title cmp-title">
+        <span>{{ e.group1 or 'Group 1' }}{% if e.n1 %} <small>n={{ e.n1 }}</small>{% endif %}</span>
+        <span class="vs">vs</span>
+        <span>{{ e.group0 or 'Group 0' }}{% if e.n0 %} <small>n={{ e.n0 }}</small>{% endif %}</span>
+      </h1>
+      <p class="taxon-ids">
+        {{ condition_chips(e.conditions) }}
+        <a href="{{ wiki(st.name, e.name) }}">BugSigDB ↗</a>
+        <a href="/api/studies/{{ st.study_id|urlq }}/experiments/{{ e.experiment_id }}">JSON</a>
+      </p>
+      {% if e.experiments|length > 1 %}
+      <nav class="siblings" aria-label="Other experiments in this study">
+        {% for x in e.experiments %}<a href="{{ exp_url(st.study_id, x.experiment_id) }}"{% if x.experiment_id == e.experiment_id %} aria-current="page"{% endif %}>{{ x.experiment_id }}</a>{% endfor %}
+      </nav>
+      {% endif %}
+    </div>
+  </header>
+
+  <div class="wrap card-body">
+    {% if e.group1_definition %}<p class="defn"><b>{{ e.group1 or 'Group 1' }}:</b> {{ e.group1_definition }}</p>{% endif %}
+
+    <section class="sigcols">
+      {% for dirn, label in [('increased', 'Increased in ' ~ (e.group1 or 'group 1')), ('decreased', 'Decreased in ' ~ (e.group1 or 'group 1'))] %}
+      <div class="panel sigcol sigcol-{{ dirn }}">
+        <div class="panel-head"><h2>{{ dirbadge(dirn) }} {{ label }}</h2></div>
+        {% for g in e.signatures if g.direction == dirn %}
+        <div class="sigblock">
+          <p class="sigblock-head"><a href="{{ sig_url(st.study_id, e.experiment_id, g.signature_id) }}">{{ g.name }}</a> <small>{{ g.taxa|length }} taxa{% if g.source %} · {{ g.source }}{% endif %}</small></p>
+          {{ taxa_chips(g.taxa, 40) }}
+        </div>
+        {% else %}<p class="muted">No signature.</p>{% endfor %}
+      </div>
+      {% endfor %}
+    </section>
+    {% set other = e.signatures|rejectattr('direction', 'in', ['increased', 'decreased'])|list %}
+    {% if other %}
+    <section class="panel">
+      <div class="panel-head"><h2>Direction not recorded</h2></div>
+      {% for g in other %}<div class="sigblock"><p class="sigblock-head"><a href="{{ sig_url(st.study_id, e.experiment_id, g.signature_id) }}">{{ g.name }}</a></p>{{ taxa_chips(g.taxa, 40) }}</div>{% endfor %}
+    </section>
+    {% endif %}
+
+    <div class="twocol">
+      <section class="panel">
+        <div class="panel-head"><h2>Methods</h2></div>
+        <dl class="facts">
+          {% for label, v in [('Location', e.location), ('Sequencing', e.sequencing_type), ('16S region', e.region_16s), ('Platform', e.platform),
+                              ('Transformation', e.transformation), ('Statistical test', e.test), ('Significance', e.threshold),
+                              ('MHT correction', e.mht), ('LDA score above', e.lda), ('Antibiotics exclusion', e.antibiotics_exclusion),
+                              ('Matched on', e.matched_on), ('Confounders controlled', e.confounders), ('Body site ontology', e.uberon_id)] if v %}
+          <div><dt>{{ label }}</dt><dd>{{ v|commas }}</dd></div>
+          {% endfor %}
+        </dl>
+      </section>
+      <section class="panel">
+        <div class="panel-head"><h2>Alpha diversity</h2></div>
+        {% set div = [('Shannon', e.shannon), ('Richness', e.richness), ('Chao1', e.chao1), ('Simpson', e.simpson), ('Inverse Simpson', e.inverse_simpson), ('Pielou', e.pielou)] %}
+        {% if div|selectattr(1)|list %}
+        <dl class="facts">
+          {% for label, v in div if v %}<div><dt>{{ label }}</dt><dd>{% if v == 'increased' %}<span class="up">▲ increased</span>{% elif v == 'decreased' %}<span class="down">▼ decreased</span>{% else %}{{ v }}{% endif %}</dd></div>{% endfor %}
+        </dl>
+        <p class="hint">In {{ e.group1 or 'group 1' }} relative to {{ e.group0 or 'group 0' }}.</p>
+        {% else %}<p class="muted">Not reported.</p>{% endif %}
+      </section>
+    </div>
+  </div>
+</article>
+{% endblock %}

@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import taxname, rank, split %}
+{% from "_macros.html" import taxname, rank, split, sig_url %}
 {% set up = t.signature_counts.get('increased', 0) %}
 {% set down = t.signature_counts.get('decreased', 0) %}
 {% block title %}{{ t.name }} · BugSigDB Explorer{% endblock %}
@@ -73,7 +73,7 @@
       <ul class="diverge">
         {% for c in t.conditions %}
         <li>
-          <span class="dv-label" title="{{ c.condition|commas }}">{{ c.condition|commas }}<small>{{ c.studies }} stud{{ 'y' if c.studies == 1 else 'ies' }}</small></span>
+          <span class="dv-label" title="{{ c.condition }}"><a href="/condition/{{ c.ontology_id|urlq }}">{{ c.condition }}</a><small>{{ c.studies }} stud{{ 'y' if c.studies == 1 else 'ies' }}</small></span>
           <span class="dv-bars">
             <span class="dv-side dv-down">{% if c.decreased %}<i>{{ c.decreased }}</i>{% endif %}<span class="bar" style="width: {{ (85 * c.decreased / scale)|round(1) }}%"></span></span>
             <span class="dv-side dv-up"><span class="bar" style="width: {{ (85 * c.increased / scale)|round(1) }}%"></span>{% if c.increased %}<i>{{ c.increased }}</i>{% endif %}</span>
@@ -150,7 +150,7 @@
               <td class="cmp"><span>{{ s.group1 or '?' }}</span> <small>vs</small> <span>{{ s.group0 or '?' }}</span></td>
               <td>{{ s.body_site or '' }}</td>
               <td class="study">
-                <a href="{{ wiki(s.study, s.experiment, s.signature) }}" title="{{ s.title or '' }}">{{ (s.title or s.study)|truncate(70) }}</a>
+                <a href="{{ sig_url(s.study_id, s.experiment_id, s.signature_id) }}" title="{{ (s.title or '')|striptags }}">{{ (s.title or s.study_id)|truncate(70)|rich }}</a>
                 <small>{{ s.year or '' }}{% if s.pmid %} · <a href="https://pubmed.ncbi.nlm.nih.gov/{{ s.pmid }}/">PubMed</a>{% endif %}</small>
               </td>
               {% if t.n_signatures > t.n_direct %}<td>{% if s.via_tax_id != t.tax_id %}<a class="tax" href="/taxon/{{ s.via_tax_id }}">{{ s.via_name }}</a>{% else %}<span class="muted">this</span>{% endif %}</td>{% endif %}

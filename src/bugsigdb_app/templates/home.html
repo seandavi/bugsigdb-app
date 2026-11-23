@@ -47,13 +47,13 @@
   <div class="connect">
     <div class="panel">
       <h3>REST API</h3>
-      <p>JSON for every page. <a href="/api/docs">Interactive docs</a>.</p>
+      <p>JSON for every page: taxa, studies, experiments, signatures, conditions. <a href="/api/docs">Interactive docs</a>.</p>
       <pre><code>curl {{ request.base_url }}api/taxa?q=akkermansia
 curl {{ request.base_url }}api/taxa/239934</code></pre>
     </div>
     <div class="panel">
       <h3>MCP server</h3>
-      <p>Streamable HTTP, no auth. Tools: <code>search_taxa</code>, <code>get_taxon</code>.</p>
+      <p>Streamable HTTP, no auth. Tools: <code>search_taxa</code>, <code>get_taxon</code>, <code>search_studies</code>, <code>get_study</code>, <code>get_experiment</code>, <code>get_signature</code>, <code>search_conditions</code>, <code>get_condition</code>.</p>
       <pre><code>claude mcp add --transport http bugsigdb {{ request.base_url }}mcp</code></pre>
     </div>
   </div>

@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% from "_macros.html" import study_url, filterbox %}
+{% block title %}Studies · BugSigDB Explorer{% endblock %}
+{% block main %}
+<div class="wrap page">
+  <section class="panel" data-filtertable>
+    <div class="panel-head">
+      <h1 class="page-title flush">Studies <small>{{ studies|length|num }}</small></h1>
+      <div class="filters">{{ filterbox("Filter by title, author, journal, PMID…") }}</div>
+    </div>
+    <p class="hint" data-count>Published studies curated in BugSigDB, newest first.</p>
+    <div class="table-wrap">
+      <table class="sigs">
+        <thead><tr><th scope="col">Study</th><th scope="col" class="num">Year</th><th scope="col" class="num">Experiments</th><th scope="col" class="num">Signatures</th></tr></thead>
+        <tbody>
+        {% for s in studies %}
+        <tr>
+          <td class="study"><a href="{{ study_url(s.study_id) }}">{{ (s.title or s.name)|rich }}</a><small>{{ s.authors|authors_short }}{% if s.journal %} · <i>{{ s.journal }}</i>{% endif %}{% if s.pmid %} · PMID {{ s.pmid }}{% endif %}</small></td>
+          <td class="num">{{ s.year or '' }}</td>
+          <td class="num">{{ s.n_experiments }}</td>
+          <td class="num">{{ s.n_signatures }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+{% endblock %}

@@ -7,3 +7,9 @@ deploy: env
 
 load:
     docker compose run --rm app /app/.venv/bin/python -m bugsigdb_app.load
+
+# Schema-changing release: build, load with the new image, then restart (seconds of mismatch)
+release: env
+    docker compose build
+    docker compose run --rm app /app/.venv/bin/python -m bugsigdb_app.load
+    docker compose up -d

@@ -1,5 +1,6 @@
 """Server-rendered HTML pages over the same query functions as REST and MCP."""
 
+import re
 from collections import defaultdict
 from pathlib import Path
 from urllib.parse import quote
@@ -7,6 +8,7 @@ from urllib.parse import quote
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
+from markupsafe import Markup, escape
 
 from bugsigdb_app import queries
 
@@ -97,8 +99,72 @@ async def search(request: Request, q: str = ""):
 async def taxon(request: Request, tax_id: int):
     card = await queries.get_taxon(request.app.state.pool, tax_id, signature_limit=500)
     if card is None:
-        return render(request, "404.html", status=404, tax_id=tax_id)
+        return render(request, "404.html", status=404, what=f"NCBI taxon {tax_id}", tax_id=tax_id)
     conds = card["conditions"]
     scale = max((max(c["increased"], c["decreased"]) for c in conds), default=1) or 1
     return render(request, "taxon.html", t=card, traits=group_traits(card["traits"]), scale=scale,
                   max_site=max((b["n"] for b in card["body_sites"]), default=1))
+
+
+def pfmt(p: float) -> str:
+    return f"{p:.1e}" if p < 0.001 else f"{p:.3f}".rstrip("0").rstrip(".")
+
+
+def authors_short(a: str | None, n: int = 3) -> str:
+    names = [x.strip() for x in (a or "").split(",") if x.strip()]
+    return ", ".join(names[:n]) + (" et al." if len(names) > n else "")
+
+
+INLINE_TAGS = re.compile(r"&lt;(/?)(i|sub|sup)&gt;")
+
+
+def rich(text: str | None) -> Markup:
+    """Escape, but keep the <i>/<sub>/<sup> that BugSigDB titles carry (species names, chemical formulas)."""
+    return Markup(INLINE_TAGS.sub(r"<\1\2>", str(escape(text or ""))))
+
+
+templates.env.filters.update(rich=rich, pfmt=pfmt, authors_short=authors_short, urlq=lambda s: quote(str(s), safe=""))
+
+
+@router.get("/studies")
+async def studies(request: Request):
+    return render(request, "studies.html", studies=await queries.search_studies(request.app.state.pool, "", 5000))
+
+
+@router.get("/study/{study_id}")
+async def study(request: Request, study_id: str):
+    s = await queries.get_study(request.app.state.pool, study_id)
+    if s is None:
+        return render(request, "404.html", status=404, what=f"study {study_id}")
+    return render(request, "study.html", s=s)
+
+
+@router.get("/study/{study_id}/experiment/{experiment_id}")
+async def experiment(request: Request, study_id: str, experiment_id: int):
+    e = await queries.get_experiment(request.app.state.pool, study_id, experiment_id)
+    if e is None:
+        return render(request, "404.html", status=404, what=f"experiment {study_id}/{experiment_id}")
+    return render(request, "experiment.html", e=e)
+
+
+@router.get("/study/{study_id}/experiment/{experiment_id}/signature/{signature_id}")
+async def signature(request: Request, study_id: str, experiment_id: int, signature_id: int):
+    g = await queries.get_signature(request.app.state.pool, study_id, experiment_id, signature_id)
+    if g is None:
+        return render(request, "404.html", status=404, what=f"signature bsdb:{study_id}/{experiment_id}/{signature_id}")
+    return render(request, "signature.html", g=g)
+
+
+@router.get("/conditions")
+async def conditions(request: Request):
+    return render(request, "conditions.html", conditions=await queries.list_conditions(request.app.state.pool))
+
+
+@router.get("/condition/{ontology_id}")
+async def condition(request: Request, ontology_id: str):
+    c = await queries.get_condition(request.app.state.pool, ontology_id, taxa_limit=300)
+    if c is None:
+        return render(request, "404.html", status=404, what=f"condition {ontology_id}")
+    scale = max((max(t["increased"], t["decreased"]) for t in c["taxa"]), default=1) or 1
+    return render(request, "condition.html", c=c, scale=scale,
+                  max_site=max((b["n"] for b in c["body_sites"]), default=1))

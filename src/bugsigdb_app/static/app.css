@@ -305,9 +305,89 @@ section[id] { scroll-margin-top: 120px; }
   .search-lg input { padding-right: 1rem; }
   .search-lg button { display: none; }
   .filters input[type=search] { width: 100%; }
-  .tiles { grid-template-columns: 1fr; }
-  .tile-wide { grid-column: auto; }
+  .tiles { grid-template-columns: repeat(3, 1fr); gap: .6rem; }
+  .tile-wide { grid-column: 1 / -1; }
+  .tile { padding: .8rem .9rem; }
+  .tile > b { font-size: 1.5rem; }
+  .brand span:not(.brand-mark) { display: none; }
+  .topbar-inner { gap: .8rem; }
+  .topnav { gap: .75rem; font-size: .88rem; }
+  .ctaxa tbody td:first-child { white-space: normal; }
+  .ctaxa tbody td:first-child .rank { display: none; }
+  .ctaxa { table-layout: fixed; }
+  .ctaxa th:nth-child(1) { width: 42%; }
+  .ctaxa tbody td:first-child { overflow-wrap: break-word; font-size: .84rem; }
+  .ctaxa td:nth-child(4) { font-size: .8rem; padding-inline: .3rem .8rem; }
+  .ctaxa th:nth-child(3), .ctaxa td:nth-child(3) { display: none; }
+  .ctaxa th:nth-child(4) { width: 4.6rem; }
+  .ctaxa .dvcell { min-width: 0; width: auto; padding-inline: .3rem; }
+  .ctaxa th.dvh { font-size: .62rem; }
+  .ctaxa td:first-child, .ctaxa th:first-child { padding-left: 1rem; }
   .panel { padding: 1.1rem 1rem; }
   .table-wrap { margin: 0 -1rem -1.1rem; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+/* --- study / experiment / signature / condition pages --- */
+.kicker { margin: 0 0 .35rem; color: var(--brand); font-size: .78rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+.doc-title { font-size: clamp(1.5rem, 3vw, 2.2rem); font-weight: 800; max-width: 48ch; }
+.doc-title .in { color: var(--muted); font-weight: 600; }
+.cmp-title { display: flex; flex-wrap: wrap; align-items: baseline; gap: .2rem .7rem; max-width: none; }
+.cmp-title small, .doc-title small { font-size: .5em; color: var(--muted); font-weight: 600; }
+.cmp-title .vs { font-size: .55em; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .08em; }
+.byline { margin: .5rem 0 0; color: var(--muted); }
+.kw { list-style: none; margin: .8rem 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: .35rem; }
+.kw li { font-size: .78rem; color: var(--muted); background: var(--surface-2); border-radius: 999px; padding: .1rem .6rem; }
+.cchip { display: inline-block; font-size: .82rem; font-weight: 600; color: var(--brand-ink); background: color-mix(in srgb, var(--brand) 12%, transparent); border-radius: 999px; padding: .15rem .65rem; margin: 0 .3rem .25rem 0; }
+.cchip:hover { text-decoration: none; background: color-mix(in srgb, var(--brand) 22%, transparent); }
+.dirb { display: inline-flex; align-items: center; gap: .25rem; font-weight: 700; font-size: .85em; border-radius: 6px; padding: .05rem .4rem; }
+.doc-title .dirb { font-size: .7em; vertical-align: middle; }
+.dirb.up { color: var(--up); background: var(--up-soft); }
+.dirb.down { color: var(--down); background: var(--down-soft); }
+.dirb.na { color: var(--muted); background: var(--surface-2); }
+.sigcell { white-space: nowrap; }
+.sigpill { display: inline-flex; align-items: center; gap: .3rem; font-size: .82rem; color: var(--text); margin: 0 .35rem .25rem 0; }
+.sigpill:hover { text-decoration: none; color: var(--brand); }
+.siblings { display: flex; flex-wrap: wrap; gap: .3rem; margin-top: 1rem; }
+.siblings a { min-width: 2rem; text-align: center; font-size: .82rem; font-weight: 600; color: var(--muted); border: 1px solid var(--line); border-radius: 8px; padding: .15rem .45rem; background: var(--surface); }
+.siblings a:hover { border-color: var(--brand); color: var(--brand); text-decoration: none; }
+.siblings a[aria-current] { background: var(--brand); border-color: var(--brand); color: #fff; }
+.defn { margin: 0; background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--brand); border-radius: 10px; padding: .9rem 1.1rem; color: var(--muted); }
+.defn b { color: var(--text); }
+.sigcols { display: grid; grid-template-columns: 1fr 1fr; gap: 1.2rem; }
+.sigcol-increased { border-top: 4px solid var(--up); }
+.sigcol-decreased { border-top: 4px solid var(--down); }
+.sigcol h2 { font-size: 1.05rem; display: flex; align-items: center; gap: .5rem; }
+.sigblock + .sigblock { border-top: 1px solid var(--line); margin-top: .9rem; padding-top: .9rem; }
+.sigblock-head { margin: 0 0 .5rem; font-weight: 600; }
+.sigblock-head small { color: var(--muted); font-weight: 500; margin-left: .3rem; }
+.chips-sm a { font-size: .82rem; padding: .15rem .6rem; }
+.chips .more { font-size: .82rem; color: var(--muted); align-self: center; padding: 0 .3rem; }
+.twocol { display: grid; grid-template-columns: 3fr 2fr; gap: 1.2rem; }
+.facts { margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: .8rem 1.4rem; }
+.facts dt { font-size: .75rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 700; }
+.facts dd { margin: .1rem 0 0; }
+.taxlist { list-style: none; margin: 0; padding: 0; columns: 3 260px; column-gap: 2rem; }
+.taxlist li { display: flex; align-items: center; gap: .5rem; padding: .3rem 0; border-bottom: 1px solid var(--line); break-inside: avoid; }
+.taxlist a { color: var(--text); font-weight: 550; }
+.taxlist a:hover { color: var(--brand); }
+.taxlist .n { margin-left: auto; color: var(--muted); font-size: .82rem; font-variant-numeric: tabular-nums; }
+.simcell { min-width: 150px; }
+.simcell .hbar { display: block; width: 120px; margin: .35rem 0 .2rem; }
+.simcell small { color: var(--muted); }
+.curation { font-size: .85rem; margin: 0; }
+.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.mono { font-family: var(--mono); font-size: .85em; }
+.strong { font-weight: 700; color: var(--text); }
+.page-title.flush { margin: 0; }
+.page-title small { color: var(--muted); font-weight: 600; font-size: .6em; margin-left: .3rem; }
+.ctaxa .dvcell { width: 45%; min-width: 220px; }
+.ctaxa .dv-bars { height: 16px; }
+.ctaxa th.dvh { text-align: center; }
+.ctaxa th.dvh span { font-weight: 700; }
+.dv-label a { color: var(--text); }
+.dv-label a:hover { color: var(--brand); }
+@media (max-width: 900px) {
+  .sigcols, .twocol { grid-template-columns: 1fr; }
+}
+.ctaxa td:first-child { white-space: nowrap; }
