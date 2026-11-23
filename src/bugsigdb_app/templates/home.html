@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% from "_macros.html" import taxon_card %}
+{% block topsearch %}{% endblock %}
+{% block main %}
+<section class="hero">
+  <div class="wrap hero-inner">
+    <p class="eyebrow">Published microbiome signatures, by taxon</p>
+    <h1>What does the literature say about <em>your</em> microbe?</h1>
+    <p class="lede">Every BugSigDB signature that mentions a taxon or its descendants, the conditions
+      and body sites behind them, and bugphyzz physiology traits — on one page.</p>
+    <form class="search search-lg" action="/search" role="search">
+      <label class="sr-only" for="q">Search taxa</label>
+      <svg class="search-icon" aria-hidden="true" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input id="q" name="q" type="search" placeholder="Akkermansia, Faecalibacterium prausnitzii, 816…" autocomplete="off" autofocus data-suggest>
+      <button type="submit">Search</button>
+    </form>
+    <p class="try">Try
+      <a href="/taxon/239935" class="it">Akkermansia muciniphila</a>,
+      <a href="/taxon/853" class="it">Faecalibacterium prausnitzii</a>,
+      <a href="/taxon/1678" class="it">Bifidobacterium</a> or
+      <a href="/taxon/976">Bacteroidota</a>.</p>
+  </div>
+</section>
+
+<section class="wrap stats" aria-label="Database size">
+  <div class="stat"><b>{{ stats.taxa|num }}</b><span>taxa</span></div>
+  <div class="stat"><b>{{ stats.signatures|num }}</b><span>signatures</span></div>
+  <div class="stat"><b>{{ stats.studies|num }}</b><span>studies</span></div>
+  <div class="stat"><b>{{ stats.taxa_with_traits|num }}</b><span>taxa with traits</span></div>
+</section>
+
+<section class="wrap block">
+  <div class="block-head">
+    <h2>Most-studied genera</h2>
+    <p class="legend"><span class="up">▲ increased</span> <span class="down">▼ decreased</span> in the case group</p>
+  </div>
+  <div class="grid">{% for t in genera %}{{ taxon_card(t) }}{% endfor %}</div>
+</section>
+
+<section class="wrap block">
+  <div class="block-head"><h2>Most-studied species</h2></div>
+  <div class="grid">{% for t in species %}{{ taxon_card(t) }}{% endfor %}</div>
+</section>
+
+<section class="wrap block" id="connect">
+  <div class="block-head"><h2>Use it from code or an AI agent</h2></div>
+  <div class="connect">
+    <div class="panel">
+      <h3>REST API</h3>
+      <p>JSON for every page. <a href="/api/docs">Interactive docs</a>.</p>
+      <pre><code>curl {{ request.base_url }}api/taxa?q=akkermansia
+curl {{ request.base_url }}api/taxa/239934</code></pre>
+    </div>
+    <div class="panel">
+      <h3>MCP server</h3>
+      <p>Streamable HTTP, no auth. Tools: <code>search_taxa</code>, <code>get_taxon</code>.</p>
+      <pre><code>claude mcp add --transport http bugsigdb {{ request.base_url }}mcp</code></pre>
+    </div>
+  </div>
+</section>
+{% endblock %}

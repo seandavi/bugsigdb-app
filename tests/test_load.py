@@ -28,3 +28,9 @@ def test_no_taxa_and_no_signature_rows():
     assert parse_taxa("NA", "NA") == []
     row = {"BSDB ID": "bsdb:1/2/NA", "NCBI Taxonomy IDs": "NA", "MetaPhlAn taxon names": "NA"}
     assert build_bsdb([row]) == ([], [], [])
+
+
+def test_closure_includes_self_and_all_ancestors():
+    from bugsigdb_app.load import closure
+    taxa = [(1, "a", "kingdom", None), (2, "b", "phylum", 1), (3, "c", "class", 2)]
+    assert sorted(closure(taxa)) == [(1, 1, 0), (2, 1, 1), (2, 2, 0), (3, 1, 2), (3, 2, 1), (3, 3, 0)]

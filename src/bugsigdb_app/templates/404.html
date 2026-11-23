@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Not found · BugSigDB Explorer{% endblock %}
+{% block main %}
+<div class="wrap page empty">
+  <h1 class="page-title">No BugSigDB signatures for NCBI taxon {{ tax_id }}</h1>
+  <p>Only taxa named in a BugSigDB signature (and their ancestors) have pages here.
+    <a href="https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?mode=Info&amp;id={{ tax_id }}">Look it up at NCBI</a>
+    or <a href="/">search by name</a>.</p>
+</div>
+{% endblock %}

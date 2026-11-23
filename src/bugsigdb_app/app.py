@@ -1,4 +1,4 @@
-"""FastAPI app: REST under /api, MCP (streamable HTTP) at /mcp."""
+"""FastAPI app: HTML pages, REST under /api, MCP (streamable HTTP) at /mcp."""
 
 import os
 from contextlib import asynccontextmanager
@@ -6,10 +6,12 @@ from typing import Any
 
 import asyncpg
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.staticfiles import StaticFiles
 from mcp.server.mcpserver import MCPServer
 from mcp.server.transport_security import TransportSecuritySettings
 
-from bugsigdb_app import queries
+from bugsigdb_app import queries, web
 
 state: dict[str, asyncpg.Pool] = {}
 
@@ -50,14 +52,18 @@ mcp_app = mcp.streamable_http_app(
 
 
 @asynccontextmanager
-async def lifespan(_: FastAPI):
-    state["pool"] = await asyncpg.create_pool(os.environ["DATABASE_URL"])
+async def lifespan(app: FastAPI):
+    state["pool"] = app.state.pool = await asyncpg.create_pool(os.environ["DATABASE_URL"])
     async with mcp.session_manager.run():
         yield
     await state.pop("pool").close()
 
 
-app = FastAPI(title="bugsigdb-app", lifespan=lifespan)
+app = FastAPI(title="bugsigdb-app", lifespan=lifespan, docs_url="/api/docs", redoc_url=None,
+              openapi_url="/api/openapi.json")
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+app.include_router(web.router)
+app.mount("/static", StaticFiles(directory=web.HERE / "static"), name="static")
 
 
 @app.get("/api/taxa")

@@ -4,10 +4,11 @@ Web app for browsing [BugSigDB](https://bugsigdb.org): pages for each taxon,
 study, signature and so on.
 
 Design: #1. A loader fetches the public BugSigDB and bugphyzz exports into
-Postgres; one FastAPI app serves REST (`/api`) and MCP (`/mcp`) over the
+Postgres; one FastAPI app serves HTML pages, REST (`/api`) and MCP (`/mcp`) over the
 same query functions (`src/bugsigdb_app/queries.py`).
 
-Live proof of concept: https://bugsigdb-poc.cancerdatasci.org
+Live proof of concept: https://bugsigdb-poc.cancerdatasci.org (taxon pages,
+search; REST docs at `/api/docs`).
 (`/api/taxa?q=akkermansia`, `/api/taxa/239934`, MCP at `/mcp`).
 
 ## Develop

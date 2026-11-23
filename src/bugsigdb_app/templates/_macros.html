@@ -1,0 +1,28 @@
+{% macro taxname(t, link=true) -%}
+{%- set cls = 'tax' ~ (' it' if t.rank in ITALIC_RANKS else '') -%}
+{%- if link %}<a class="{{ cls }}" href="/taxon/{{ t.tax_id }}">{{ t.name }}</a>{% else %}<span class="{{ cls }}">{{ t.name }}</span>{% endif -%}
+{%- endmacro %}
+
+{% macro rank(r) -%}
+{% if r %}<span class="rank rank-{{ r }}">{{ r }}</span>{% endif %}
+{%- endmacro %}
+
+{# up/down split bar; widths are shares of all directed signatures #}
+{% macro split(up, down, label=true) -%}
+{%- set tot = up + down -%}
+<div class="split" role="img" aria-label="{{ up }} increased, {{ down }} decreased">
+  {% if tot %}<span class="split-up" style="width: {{ (100 * up / tot)|round(1) }}%"></span><span class="split-down" style="width: {{ (100 * down / tot)|round(1) }}%"></span>{% endif %}
+</div>
+{%- if label %}<div class="split-legend"><span class="up">▲ {{ up|num }}</span><span class="down">▼ {{ down|num }}</span></div>{% endif %}
+{%- endmacro %}
+
+{% macro taxon_card(t) -%}
+<a class="tcard" href="/taxon/{{ t.tax_id }}">
+  <div class="tcard-head">
+    <span class="tax{{ ' it' if t.rank in ITALIC_RANKS }}">{{ t.name }}</span>
+    {{ rank(t.rank) }}
+  </div>
+  <div class="tcard-meta">{{ t.n_signatures|num }} signatures · {{ t.n_studies|num }} studies</div>
+  {{ split(t.n_increased, t.n_decreased, label=false) }}
+</a>
+{%- endmacro %}

@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% from "_macros.html" import rank, split %}
+{% block title %}“{{ q }}” · BugSigDB Explorer{% endblock %}
+{% block main %}
+<div class="wrap page">
+  <h1 class="page-title">{{ results|length }}{{ '+' if results|length == 50 }} taxa match “{{ q }}”</h1>
+  {% if results %}
+  <ol class="results">
+    {% for t in results %}
+    <li>
+      <a href="/taxon/{{ t.tax_id }}" class="result">
+        <span class="result-name"><span class="tax{{ ' it' if t.rank in ITALIC_RANKS }}">{{ t.name }}</span> {{ rank(t.rank) }}</span>
+        <span class="result-meta">{{ t.signatures|num }} signatures · NCBI {{ t.tax_id }}</span>
+        <span class="result-bar">{{ split(t.n_increased, t.n_decreased, label=false) }}</span>
+      </a>
+    </li>
+    {% endfor %}
+  </ol>
+  {% else %}
+  <div class="empty">
+    <p>No BugSigDB taxon matches that name. Taxa are named as in current NCBI taxonomy
+      (e.g. <a href="/search?q=Segatella" class="it">Segatella copri</a>, formerly <i>Prevotella copri</i>),
+      and only taxa that appear in a signature are included.</p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

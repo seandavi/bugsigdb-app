@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+{% from "_macros.html" import taxname, rank, split %}
+{% set up = t.signature_counts.get('increased', 0) %}
+{% set down = t.signature_counts.get('decreased', 0) %}
+{% block title %}{{ t.name }} · BugSigDB Explorer{% endblock %}
+{% block description %}{{ t.name }} ({{ t.rank or 'taxon' }}, NCBI {{ t.tax_id }}): {{ t.n_signatures }} BugSigDB signatures from {{ t.n_studies }} studies — increased in {{ up }}, decreased in {{ down }}.{% endblock %}
+{% block main %}
+<article class="card-page">
+  <header class="taxon-head">
+    <div class="wrap">
+      <nav class="lineage" aria-label="Lineage">
+        <ol>
+          {% for a in t.lineage %}<li>{{ taxname(a) }}</li>{% endfor %}
+          <li aria-current="page">{{ taxname(t, link=false) }}</li>
+        </ol>
+      </nav>
+      <div class="taxon-title">
+        <h1>{{ taxname(t, link=false) }}</h1>
+        {{ rank(t.rank) }}
+      </div>
+      <p class="taxon-ids">
+        NCBI <b>{{ t.tax_id }}</b>
+        <span class="sep">·</span>
+        <a href="https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?mode=Info&amp;id={{ t.tax_id }}">NCBI Taxonomy ↗</a>
+        <a href="https://bugsigdb.org/Special:RunQuery/Taxon?Taxon%5BNCBI%5D={{ t.tax_id }}&amp;_run=1">BugSigDB ↗</a>
+        <a href="https://shiny.sph.cuny.edu/app/BugSigDBEnrich?vector={{ t.tax_id }}">Enrichment ↗</a>
+        <a href="/api/taxa/{{ t.tax_id }}">JSON</a>
+      </p>
+    </div>
+  </header>
+
+  <nav class="sections" aria-label="On this page">
+    <div class="wrap">
+      <a href="#summary">Summary</a>
+      {% if t.conditions %}<a href="#conditions">Conditions</a>{% endif %}
+      {% if traits %}<a href="#traits">Traits</a>{% endif %}
+      {% if t.children %}<a href="#children">Subtaxa <small>{{ t.children|length }}</small></a>{% endif %}
+      {% if t.signatures %}<a href="#signatures">Signatures <small>{{ t.n_signatures|num }}</small></a>{% endif %}
+    </div>
+  </nav>
+
+  <div class="wrap card-body">
+    <section id="summary" class="tiles">
+      <div class="tile">
+        <b>{{ t.n_signatures|num }}</b><span>signatures</span>
+        <small>{{ t.n_direct|num }} name {{ t.name }} itself{% if t.n_signatures > t.n_direct %}; the rest a subtaxon{% endif %}</small>
+      </div>
+      <div class="tile"><b>{{ t.n_studies|num }}</b><span>studies</span></div>
+      <div class="tile tile-wide">
+        <span>Direction in the case group</span>
+        {{ split(up, down) }}
+        {% if up + down %}<small>{{ (100 * up / (up + down))|round|int }}% of directed signatures report an increase</small>{% endif %}
+      </div>
+      {% if t.body_sites %}
+      <div class="tile tile-wide">
+        <span>Body sites</span>
+        <ul class="hbars">
+          {% for b in t.body_sites[:5] %}
+          <li><span class="hbar-label">{{ b.body_site }}</span><span class="hbar"><span style="width: {{ (100 * b.n / max_site)|round(1) }}%"></span></span><span class="hbar-n">{{ b.n|num }}</span></li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+    </section>
+
+    {% if t.conditions %}
+    <section id="conditions" class="panel">
+      <div class="panel-head">
+        <h2>Conditions</h2>
+        <p class="legend"><span class="down">◀ decreased</span><span class="up">increased ▶</span></p>
+      </div>
+      <p class="hint">Signatures per condition, split by direction in the case group. Top {{ t.conditions|length }} by signature count.</p>
+      <ul class="diverge">
+        {% for c in t.conditions %}
+        <li>
+          <span class="dv-label" title="{{ c.condition|commas }}">{{ c.condition|commas }}<small>{{ c.studies }} stud{{ 'y' if c.studies == 1 else 'ies' }}</small></span>
+          <span class="dv-bars">
+            <span class="dv-side dv-down">{% if c.decreased %}<i>{{ c.decreased }}</i>{% endif %}<span class="bar" style="width: {{ (85 * c.decreased / scale)|round(1) }}%"></span></span>
+            <span class="dv-side dv-up"><span class="bar" style="width: {{ (85 * c.increased / scale)|round(1) }}%"></span>{% if c.increased %}<i>{{ c.increased }}</i>{% endif %}</span>
+          </span>
+        </li>
+        {% endfor %}
+      </ul>
+    </section>
+    {% endif %}
+
+    {% if traits %}
+    <section id="traits" class="panel">
+      <div class="panel-head">
+        <h2>Traits <small>bugphyzz</small></h2>
+        <p class="legend"><span class="ev">exp</span> experimental · <span class="ev ev-asr">asr</span> predicted</p>
+      </div>
+      <dl class="traits">
+        {% for tr in traits %}
+        <div class="trait">
+          <dt>{{ tr.attribute }}</dt>
+          <dd>
+            {% for v in tr['values'] %}
+            {% set ev = v.evidence|join(', ') %}
+            <span class="tv{{ ' tv-pred' if v.predicted }}{{ ' tv-no' if tr.kind == 'binary' and v.value == 'FALSE' }}"
+                  title="{{ v.sources|join(', ') }}{% if v.frequency %} · {{ v.frequency }}{% endif %}{% if v.score is not none %} · score {{ '%.2f'|format(v.score) }}{% endif %}">
+              {%- if tr.kind == 'binary' %}{{ 'yes' if v.value == 'TRUE' else 'no' }}{% elif tr.kind == 'numeric' %}{{ v.value|sig }}{% else %}{{ v.value }}{% endif -%}
+              {% for e in v.evidence %}<abbr class="ev ev-{{ e }}" title="{{ EVIDENCE.get(e, e) }}">{{ e }}</abbr>{% endfor %}
+            </span>
+            {% endfor %}
+          </dd>
+        </div>
+        {% endfor %}
+      </dl>
+    </section>
+    {% endif %}
+
+    {% if t.children %}
+    <section id="children" class="panel">
+      <div class="panel-head"><h2>Subtaxa</h2></div>
+      <ul class="chips">
+        {% for c in t.children %}
+        <li><a href="/taxon/{{ c.tax_id }}"><span class="tax{{ ' it' if c.rank in ITALIC_RANKS }}">{{ c.name }}</span><b>{{ c.n_signatures|num }}</b></a></li>
+        {% endfor %}
+      </ul>
+    </section>
+    {% endif %}
+
+    {% if t.signatures %}
+    <section id="signatures" class="panel" data-sigtable>
+      <div class="panel-head">
+        <h2>Signatures</h2>
+        <div class="filters">
+          <label class="sr-only" for="sigq">Filter signatures</label>
+          <input id="sigq" type="search" placeholder="Filter by condition, site, title…" data-filter>
+          <div class="seg" role="group" aria-label="Direction">
+            <button type="button" aria-pressed="true" data-dir="">All</button>
+            <button type="button" aria-pressed="false" data-dir="increased">▲ Up</button>
+            <button type="button" aria-pressed="false" data-dir="decreased">▼ Down</button>
+          </div>
+          {% if t.n_signatures > t.n_direct and t.n_direct %}
+          <label class="toggle"><input type="checkbox" data-direct> {{ t.name }} only</label>
+          {% endif %}
+        </div>
+      </div>
+      <p class="hint" data-count>Showing {{ t.signatures|length|num }}{% if t.signatures|length < t.n_signatures %} of {{ t.n_signatures|num }} (most recent first; <a href="/api/taxa/{{ t.tax_id }}?signature_limit=1000">more as JSON</a>){% endif %}.</p>
+      <div class="table-wrap">
+        <table class="sigs">
+          <thead><tr><th scope="col"></th><th scope="col">Condition</th><th scope="col">Comparison</th><th scope="col">Site</th><th scope="col">Study</th>{% if t.n_signatures > t.n_direct %}<th scope="col">Taxon</th>{% endif %}</tr></thead>
+          <tbody>
+            {% for s in t.signatures %}
+            <tr data-dir="{{ s.direction or '' }}" data-direct="{{ 1 if s.via_tax_id == t.tax_id else 0 }}">
+              <td>{% if s.direction == 'increased' %}<span class="dir up" title="increased">▲</span>{% elif s.direction == 'decreased' %}<span class="dir down" title="decreased">▼</span>{% endif %}</td>
+              <td>{{ (s.condition or '—')|commas }}</td>
+              <td class="cmp"><span>{{ s.group1 or '?' }}</span> <small>vs</small> <span>{{ s.group0 or '?' }}</span></td>
+              <td>{{ s.body_site or '' }}</td>
+              <td class="study">
+                <a href="{{ wiki(s.study, s.experiment, s.signature) }}" title="{{ s.title or '' }}">{{ (s.title or s.study)|truncate(70) }}</a>
+                <small>{{ s.year or '' }}{% if s.pmid %} · <a href="https://pubmed.ncbi.nlm.nih.gov/{{ s.pmid }}/">PubMed</a>{% endif %}</small>
+              </td>
+              {% if t.n_signatures > t.n_direct %}<td>{% if s.via_tax_id != t.tax_id %}<a class="tax" href="/taxon/{{ s.via_tax_id }}">{{ s.via_name }}</a>{% else %}<span class="muted">this</span>{% endif %}</td>{% endif %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+    {% endif %}
+  </div>
+</article>
+{% endblock %}

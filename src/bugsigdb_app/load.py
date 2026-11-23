@@ -26,7 +26,17 @@ create table taxon (
     tax_id integer primary key,
     name text not null,
     rank text,
-    parent_id integer
+    parent_id integer,
+    n_signatures integer not null default 0,  -- own + descendants'
+    n_studies integer not null default 0,
+    n_increased integer not null default 0,
+    n_decreased integer not null default 0
+);
+create table taxon_ancestor (  -- closure: every (taxon, ancestor-or-self) pair
+    tax_id integer not null,
+    ancestor_id integer not null,
+    depth integer not null,  -- 0 = self
+    primary key (ancestor_id, tax_id)
 );
 create table signature (
     bsdb_id text primary key,
@@ -55,10 +65,22 @@ create table trait (
 
 INDEXES = """
 create index on taxon (parent_id);
+create index on taxon_ancestor (tax_id);
+update taxon t set n_signatures = s.n, n_studies = s.k, n_increased = s.up, n_decreased = s.down from (
+    select a.ancestor_id, count(distinct st.bsdb_id) as n, count(distinct sg.study) as k,
+           count(distinct st.bsdb_id) filter (where sg.direction = 'increased') as up,
+           count(distinct st.bsdb_id) filter (where sg.direction = 'decreased') as down
+    from signature_taxon st
+    join taxon_ancestor a using (tax_id)
+    join signature sg using (bsdb_id)
+    group by a.ancestor_id
+) s where s.ancestor_id = t.tax_id;
 create index on taxon (lower(name) text_pattern_ops);
 create index on signature_taxon (tax_id);
 create index on trait (tax_id);
 """
+
+COLUMNS = {"taxon": ["tax_id", "name", "rank", "parent_id"]}  # rest are computed
 
 SIGNATURE_COLS = {
     "bsdb_id": "BSDB ID", "study": "Study", "pmid": "PMID", "doi": "DOI",
@@ -116,6 +138,18 @@ def build_bsdb(rows: list[dict[str, str]]):
     return list(taxa.values()), signatures, sorted(links)
 
 
+def closure(taxa: list[tuple]) -> list[tuple[int, int, int]]:
+    """(tax_id, ancestor_id, depth) for every taxon and each of its ancestors, self at depth 0."""
+    parent = {t[0]: t[3] for t in taxa}
+    out = []
+    for tax_id in parent:
+        node, depth = tax_id, 0
+        while node is not None:
+            out.append((tax_id, node, depth))
+            node, depth = parent.get(node), depth + 1
+    return out
+
+
 def build_traits(rows: list[dict[str, str]], keep: set[int]):
     out = []
     for r in rows:
@@ -148,9 +182,11 @@ async def main() -> None:
         async with conn.transaction():
             await conn.execute("drop schema if exists staging cascade; create schema staging; set search_path = staging")
             await conn.execute(SCHEMA)
-            for table, records in [("taxon", taxa), ("signature", signatures),
+            for table, records in [("taxon", taxa), ("taxon_ancestor", closure(taxa)),
+                                   ("signature", signatures),
                                    ("signature_taxon", links), ("trait", traits)]:
-                await conn.copy_records_to_table(table, records=records, schema_name="staging")
+                await conn.copy_records_to_table(table, records=records, schema_name="staging",
+                                                columns=COLUMNS.get(table))
             await conn.execute(INDEXES)
             await conn.execute("drop schema if exists bsdb cascade; alter schema staging rename to bsdb")
     finally:
