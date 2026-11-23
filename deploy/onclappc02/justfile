@@ -1,0 +1,9 @@
+env:
+    umask 077 && printf 'DATABASE_URL=postgresql://bugsigdb_poc:%s@pg_main:5432/bugsigdb_poc\n' \
+      "$(gcloud secrets versions access latest --secret cdsci-bugsigdb-poc-db-password-onclappc02 --project cdsci-infra)" > .env
+
+deploy: env
+    docker compose up -d --build
+
+load:
+    docker compose run --rm app /app/.venv/bin/python -m bugsigdb_app.load

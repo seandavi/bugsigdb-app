@@ -1,0 +1,38 @@
+# bugsigdb-poc.cancerdatasci.org on onclappc02.
+#
+# - `proxy` network: Traefik (monode/infrastructure/compose/traefik) routes the host below.
+#   The DNS record is Cloudflare-proxied (orange cloud; monode apps/dns), so there is no
+#   certresolver: Traefik serves its default *.cancerdatasci.org Cloudflare Origin Cert.
+# - `pg_main_stack_default` network: reaches the shared pg_main cluster by name.
+#   Database and role `bugsigdb_poc`; password in GSM cdsci-infra /
+#   cdsci-bugsigdb-poc-db-password-onclappc02.
+#
+# Deploy:   just deploy        (from this directory; writes .env from GSM, builds, starts)
+# Reload:   just load          (fetch the public exports and swap them in)
+services:
+  app:
+    build: ../..
+    image: bugsigdb-app:local
+    container_name: bugsigdb_poc
+    restart: unless-stopped
+    networks: [proxy, pg_main_stack_default]
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in .env}
+      ALLOWED_HOSTS: bugsigdb-poc.cancerdatasci.org,localhost,127.0.0.1
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.bugsigdb-poc.rule=Host(`bugsigdb-poc.cancerdatasci.org`)"
+      - "traefik.http.routers.bugsigdb-poc.entrypoints=websecure"
+      - "traefik.http.routers.bugsigdb-poc.tls=true"
+      - "traefik.http.services.bugsigdb-poc.loadbalancer.server.port=8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+networks:
+  proxy:
+    external: true
+  pg_main_stack_default:
+    external: true

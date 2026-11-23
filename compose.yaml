@@ -1,0 +1,22 @@
+# Local development: app + its own Postgres. `just up`, then `just load`.
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: bsdb
+      POSTGRES_USER: bsdb
+      POSTGRES_PASSWORD: bsdb  # local only
+    ports: ["127.0.0.1:5442:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "bsdb"]
+      interval: 2s
+  app:
+    build: .
+    environment:
+      DATABASE_URL: postgresql://bsdb:bsdb@db:5432/bsdb
+    ports: ["127.0.0.1:8042:8000"]
+    depends_on:
+      db: {condition: service_healthy}
+volumes:
+  pgdata:
