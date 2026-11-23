@@ -9,6 +9,10 @@
 #
 # Deploy:   just deploy        (from this directory; writes .env from GSM, builds, starts)
 # Reload:   just load          (fetch the public exports and swap them in)
+# Explicit name: other repos' deploy/onclappc02 dirs would otherwise share the
+# default project name "onclappc02" and see each other's containers as orphans.
+name: bugsigdb-poc
+
 services:
   app:
     build: ../..
