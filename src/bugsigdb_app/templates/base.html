@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}BugSigDB Explorer{% endblock %}</title>
   <meta name="description" content="{% block description %}Microbial signatures from BugSigDB and traits from bugphyzz, organized by taxon.{% endblock %}">
-  <link rel="stylesheet" href="/static/app.css?v=12">
+  <link rel="stylesheet" href="/static/app.css?v=13">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🦠</text></svg>">
   <script src="/static/app.js?v=4" defer></script>
   <!-- GA4 per monode infrastructure/ANALYTICS.md: one property, hard-coded public ID,
@@ -45,9 +45,14 @@
   <main id="main">{% block main %}{% endblock %}</main>
   <footer class="footer">
     <div class="wrap">
-      <p>Signatures from <a href="https://bugsigdb.org">BugSigDB</a> (CC BY 4.0) and traits from
-        <a href="https://github.com/waldronlab/bugphyzz">bugphyzz</a>, via their public exports.
-        Taxonomy from NCBI. A proof of concept; data are refreshed from the exports, not live.</p>
+      <p>Signatures from <a href="https://bugsigdb.org">BugSigDB</a>
+        (<a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>) and traits from
+        <a href="https://github.com/waldronlab/bugphyzz">bugphyzz</a>
+        (<a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a>), via their public exports;
+        taxonomy from NCBI. Data on this site carry those licenses. Refreshed from the exports, not live.</p>
+      <p>Open source (MIT) at <a href="https://github.com/seandavi/bugsigdb-app">seandavi/bugsigdb-app</a> ·
+        <a href="https://github.com/seandavi/bugsigdb-app/issues">report a problem or suggest a feature</a> ·
+        data corrections go to <a href="https://bugsigdb.org">BugSigDB</a>.</p>
     </div>
   </footer>
 </body>

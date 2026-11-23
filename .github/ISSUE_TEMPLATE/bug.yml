@@ -1,0 +1,22 @@
+name: Bug report
+description: Something on the site, API or MCP server is broken or confusing
+labels: [bug]
+body:
+  - type: input
+    id: url
+    attributes:
+      label: Page, endpoint or MCP tool
+      placeholder: https://bugsigdb-poc.cancerdatasci.org/taxon/239934
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: Browser / client (if relevant)
+      placeholder: Firefox 140 on macOS, Claude Desktop MCP, curl…

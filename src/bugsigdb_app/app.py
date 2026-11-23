@@ -27,7 +27,8 @@ mcp = MCPServer(
     "Hierarchy: study > experiment (one comparison: condition, body site, groups) > signature (direction + taxa). "
     "Start with search (any entity, any ID); search_taxa, search_studies and search_conditions narrow to one kind. "
     "get_condition ranks taxa by how consistently they go up or down in that condition (sign test). "
-    "Study IDs are usually PMIDs; signature IDs look like bsdb:<study>/<experiment>/<signature>.",
+    "Study IDs are usually PMIDs; signature IDs look like bsdb:<study>/<experiment>/<signature>. "
+    "Data licenses: BugSigDB CC BY 4.0, bugphyzz CC BY-SA 4.0; attribute both when reusing results.",
 )
 
 
@@ -108,8 +109,14 @@ async def lifespan(app: FastAPI):
     await state.pop("pool").close()
 
 
-app = FastAPI(title="bugsigdb-app", lifespan=lifespan, docs_url="/api/docs", redoc_url=None,
-              openapi_url="/api/openapi.json")
+app = FastAPI(
+    title="BugSigDB Explorer API",
+    description="Read-only access to BugSigDB signatures (CC BY 4.0, https://bugsigdb.org) and bugphyzz traits "
+    "(CC BY-SA 4.0, https://github.com/waldronlab/bugphyzz), organized by taxon, study and condition. "
+    "Source and issues: https://github.com/seandavi/bugsigdb-app",
+    license_info={"name": "Code: MIT. Data: CC BY 4.0 (BugSigDB), CC BY-SA 4.0 (bugphyzz)",
+                  "url": "https://github.com/seandavi/bugsigdb-app#license"},
+    lifespan=lifespan, docs_url="/api/docs", redoc_url=None, openapi_url="/api/openapi.json")
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 app.include_router(web.router)
 app.mount("/static", StaticFiles(directory=web.HERE / "static"), name="static")

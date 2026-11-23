@@ -1,0 +1,15 @@
+name: Idea or feature request
+description: A page, view, API endpoint, MCP tool or analysis you would like
+labels: [enhancement]
+body:
+  - type: textarea
+    id: need
+    attributes:
+      label: What do you want to find out or do?
+      description: The question you are trying to answer matters more than the exact feature.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: How might it work?

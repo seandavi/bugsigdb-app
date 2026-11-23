@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Wrong signature, taxon, condition or study data
+    url: https://bugsigdb.org
+    about: This app mirrors BugSigDB's exports. Please correct the data on BugSigDB; it will appear here after the next load.
+  - name: Wrong physiology trait
+    url: https://github.com/waldronlab/bugphyzz/issues
+    about: Trait data come from bugphyzz; report trait errors there.
