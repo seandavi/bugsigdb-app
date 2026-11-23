@@ -141,7 +141,7 @@
       <p class="hint" data-count>Showing {{ t.signatures|length|num }}{% if t.signatures|length < t.n_signatures %} of {{ t.n_signatures|num }} (most recent first; <a href="/api/taxa/{{ t.tax_id }}?signature_limit=1000">more as JSON</a>){% endif %}.</p>
       <div class="table-wrap">
         <table class="sigs">
-          <thead><tr><th scope="col"></th><th scope="col">Condition</th><th scope="col">Comparison</th><th scope="col">Site</th><th scope="col">Study</th>{% if t.n_signatures > t.n_direct %}<th scope="col">Taxon</th>{% endif %}</tr></thead>
+          <thead><tr><th scope="col"></th><th scope="col">Condition</th><th scope="col">Comparison</th><th scope="col">Site</th><th scope="col">Study</th>{% if t.n_signatures > t.n_direct %}<th scope="col" title="The taxon the signature names: this one or a subtaxon">Named taxon</th>{% endif %}</tr></thead>
           <tbody>
             {% for s in t.signatures %}
             <tr data-dir="{{ s.direction or '' }}" data-direct="{{ 1 if s.via_tax_id == t.tax_id else 0 }}">
@@ -153,7 +153,7 @@
                 <a href="{{ sig_url(s.study_id, s.experiment_id, s.signature_id) }}" title="{{ (s.title or '')|striptags }}">{{ (s.title or s.study_id)|truncate(70)|rich }}</a>
                 <small>{{ s.year or '' }}{% if s.pmid %} · <a href="https://pubmed.ncbi.nlm.nih.gov/{{ s.pmid }}/">PubMed</a>{% endif %}</small>
               </td>
-              {% if t.n_signatures > t.n_direct %}<td>{% if s.via_tax_id != t.tax_id %}<a class="tax" href="/taxon/{{ s.via_tax_id }}">{{ s.via_name }}</a>{% else %}<span class="muted">this</span>{% endif %}</td>{% endif %}
+              {% if t.n_signatures > t.n_direct %}<td>{% if s.via_tax_id != t.tax_id %}<a class="tax" href="/taxon/{{ s.via_tax_id }}">{{ s.via_name }}</a>{% else %}<span class="muted tax{{ ' it' if t.rank in ITALIC_RANKS }}">{{ t.name }}</span>{% endif %}</td>{% endif %}
             </tr>
             {% endfor %}
           </tbody>
