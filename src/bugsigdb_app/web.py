@@ -85,14 +85,24 @@ async def home(request: Request):
                   species=await queries.top_taxa(pool, "species", 12))
 
 
+KIND_LABELS = {"taxon": "Taxa", "condition": "Conditions", "study": "Studies"}
+templates.env.globals["KIND_LABELS"] = KIND_LABELS
+
+
 @router.get("/search")
-async def search(request: Request, q: str = ""):
+async def search(request: Request, q: str = "", kind: str | None = None):
     if not q.strip():
         return RedirectResponse("/", status_code=303)
-    results = await queries.search_taxa(request.app.state.pool, q, 50)
-    if len(results) == 1 or (results and results[0]["name"].lower() == q.strip().lower()):
-        return RedirectResponse(f"/taxon/{results[0]['tax_id']}", status_code=303)
-    return render(request, "search.html", q=q, results=results)
+    if kind not in queries.SEARCH_KINDS:
+        kind = None
+    r = await queries.search(request.app.state.pool, q, per_kind=200 if kind else 8, kind=kind)
+    hits = [x for g in r["groups"] for x in g["results"]]
+    # jump straight there for an exact ID, or when there is exactly one hit
+    if r["redirect"]:
+        return RedirectResponse(r["redirect"], status_code=303)
+    if len(hits) == 1 or (hits and not kind and sum(x["tier"] == 0 for x in hits) == 1 and hits[0]["tier"] == 0):
+        return RedirectResponse(hits[0]["url"], status_code=303)
+    return render(request, "search.html", q=q, kind=kind, r=r)
 
 
 @router.get("/taxon/{tax_id}")
@@ -104,10 +114,6 @@ async def taxon(request: Request, tax_id: int):
     scale = max((max(c["increased"], c["decreased"]) for c in conds), default=1) or 1
     return render(request, "taxon.html", t=card, traits=group_traits(card["traits"]), scale=scale,
                   max_site=max((b["n"] for b in card["body_sites"]), default=1))
-
-
-def pfmt(p: float) -> str:
-    return f"{p:.1e}" if p < 0.001 else f"{p:.3f}".rstrip("0").rstrip(".")
 
 
 def authors_short(a: str | None, n: int = 3) -> str:
@@ -123,7 +129,7 @@ def rich(text: str | None) -> Markup:
     return Markup(INLINE_TAGS.sub(r"<\1\2>", str(escape(text or ""))))
 
 
-templates.env.filters.update(rich=rich, pfmt=pfmt, authors_short=authors_short, urlq=lambda s: quote(str(s), safe=""))
+templates.env.filters.update(rich=rich, authors_short=authors_short, urlq=lambda s: quote(str(s), safe=""))
 
 
 @router.get("/studies")
@@ -162,7 +168,7 @@ async def conditions(request: Request):
 
 @router.get("/condition/{ontology_id}")
 async def condition(request: Request, ontology_id: str):
-    c = await queries.get_condition(request.app.state.pool, ontology_id, taxa_limit=300)
+    c = await queries.get_condition(request.app.state.pool, ontology_id, taxa_limit=300, order="signatures")
     if c is None:
         return render(request, "404.html", status=404, what=f"condition {ontology_id}")
     scale = max((max(t["increased"], t["decreased"]) for t in c["taxa"]), default=1) or 1

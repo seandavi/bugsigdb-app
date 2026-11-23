@@ -13,3 +13,11 @@ def test_rich_keeps_inline_tags_only():
     from bugsigdb_app.web import rich
     assert rich("<i>F. prausnitzii</i> & H<sub>2</sub>S") == "<i>F. prausnitzii</i> &amp; H<sub>2</sub>S"
     assert rich('<script>x</script><i onclick="y">') == "&lt;script&gt;x&lt;/script&gt;&lt;i onclick=&#34;y&#34;&gt;"
+
+
+def test_bsdb_id_pattern():
+    from bugsigdb_app.queries import BSDB_ID
+    m = BSDB_ID.match("bsdb:42010118/1/2")
+    assert (m["study"], m["experiment"], m["signature"]) == ("42010118", "1", "2")
+    assert BSDB_ID.match("bsdb:10.31083 CEOG44510/3")["signature"] is None
+    assert BSDB_ID.match("bsdb:1/x/2") is None

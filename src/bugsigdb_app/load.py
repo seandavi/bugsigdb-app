@@ -108,6 +108,8 @@ create table trait (
 """
 
 POST = """
+-- trusted extension (PG13+): the database owner can create it. Lives in public so it survives the schema swap.
+create extension if not exists pg_trgm with schema public;
 create index on taxon (parent_id);
 create index on taxon (lower(name) text_pattern_ops);
 create index on taxon_ancestor (tax_id);
@@ -133,6 +135,26 @@ update taxon t set n_signatures = s.n, n_studies = s.k, n_increased = s.up, n_de
     join signature sg using (bsdb_id)
     group by a.ancestor_id
 ) s where s.ancestor_id = t.tax_id;
+-- one row per searchable entity; `text` is matched, `ids` are exact identifiers, `weight` ranks ties
+create table search_doc as
+    select 'taxon' as kind, tax_id::text as key, name as label, rank as sub,
+           name as text, array[tax_id::text] as ids, n_signatures as weight  -- ids are lowercase
+    from taxon
+    union all
+    select 'condition', cn.ontology_id, cn.name, cn.ontology_id, cn.name || ' ' || cn.ontology_id,
+           array[lower(cn.ontology_id), lower(replace(cn.ontology_id, ':', '_'))], count(s.bsdb_id)
+    from condition cn
+    join experiment_condition ec using (ontology_id)
+    left join signature s on (s.study_id, s.experiment_id) = (ec.study_id, ec.experiment_id)
+    group by cn.ontology_id, cn.name
+    union all
+    select 'study', st.study_id, coalesce(st.title, st.name), concat_ws(' · ', st.journal, st.year),
+           concat_ws(' ', st.title, st.authors, st.journal, st.keywords, st.doi),
+           array_remove(array[lower(st.study_id), st.pmid, lower(st.doi)], null),
+           (select count(*) from signature s where s.study_id = st.study_id)
+    from study st;
+create index on search_doc using gin (lower(text) public.gin_trgm_ops);
+create index on search_doc using gin (ids);
 """
 
 COLUMNS = {"taxon": ["tax_id", "name", "rank", "parent_id"]}  # rest are computed

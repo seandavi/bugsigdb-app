@@ -1,6 +1,7 @@
 // Progressive enhancement only: every page works without this file.
 
-// Search-as-you-type on inputs marked data-suggest. Enter without a selection submits the form.
+// Search-as-you-type on inputs marked data-suggest: taxa, conditions and studies, grouped.
+// Arrow keys move through results; Enter without a selection submits the form (full results page).
 function suggest(input) {
   const list = document.createElement("ul");
   list.className = "suggest";
@@ -13,14 +14,24 @@ function suggest(input) {
   input.setAttribute("aria-expanded", "false");
   input.setAttribute("aria-autocomplete", "list");
 
-  let items = [], active = -1, timer, seq = 0;
+  const LABELS = { taxon: "Taxa", condition: "Conditions", study: "Studies" };
   const italic = new Set(["genus", "species", "strain"]);
+  let options = [], active = -1, timer, seq = 0;
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
   const close = () => { list.hidden = true; input.setAttribute("aria-expanded", "false"); active = -1; };
-  const go = (t) => { location.href = "/taxon/" + t.tax_id; };
   const highlight = (i) => {
     active = i;
-    [...list.children].forEach((li, j) => li.setAttribute("aria-selected", j === i ? "true" : "false"));
-    if (i >= 0) input.setAttribute("aria-activedescendant", list.children[i].id);
+    options.forEach((o, j) => o.li.setAttribute("aria-selected", j === i ? "true" : "false"));
+    if (i >= 0) { input.setAttribute("aria-activedescendant", options[i].li.id); options[i].li.scrollIntoView({ block: "nearest" }); }
+  };
+  const option = (url, children) => {
+    const li = el("li");
+    li.id = `${list.id}-${options.length}`;
+    li.setAttribute("role", "option");
+    li.append(...children);
+    li.addEventListener("mousedown", (e) => { e.preventDefault(); location.href = url; });
+    options.push({ li, url });
+    return li;
   };
 
   input.addEventListener("input", () => {
@@ -29,26 +40,26 @@ function suggest(input) {
     if (q.length < 2) return close();
     timer = setTimeout(async () => {
       const mine = ++seq;
-      const res = await fetch("/api/taxa?limit=8&q=" + encodeURIComponent(q));
+      const res = await fetch("/api/search?per_kind=4&q=" + encodeURIComponent(q));
       if (!res.ok || mine !== seq) return;
-      items = await res.json();
-      list.replaceChildren(...items.map((t, i) => {
-        const li = document.createElement("li");
-        li.id = list.id + "-" + i;
-        li.setAttribute("role", "option");
-        const name = document.createElement("span");
-        name.textContent = t.name;
-        if (italic.has(t.rank)) name.className = "it";
-        const rank = document.createElement("span");
-        rank.className = "rank rank-" + (t.rank || "");
-        rank.textContent = t.rank || "";
-        const n = document.createElement("span");
-        n.className = "n";
-        n.textContent = t.signatures.toLocaleString() + " sig.";
-        li.append(name, rank, n);
-        li.addEventListener("mousedown", (e) => { e.preventDefault(); go(t); });
-        return li;
-      }));
+      const r = await res.json();
+      options = [];
+      const items = [];
+      if (r.redirect) items.push(option(r.redirect, [el("span", "lbl", "Go to " + q)]));
+      for (const g of r.groups) {
+        const head = el("li", "grp", `${LABELS[g.kind]} · ${g.total.toLocaleString()}`);
+        head.setAttribute("role", "presentation");
+        items.push(head);
+        for (const x of g.results) {
+          // study titles may carry <i> markup; show them as plain text here
+          const label = el("span", "lbl" + (x.kind === "taxon" && italic.has(x.sub) ? " it" : ""), x.label.replace(/<[^>]+>/g, ""));
+          const extra = x.kind === "taxon" ? el("span", "rank rank-" + (x.sub || ""), x.sub || "")
+            : el("span", "n", x.kind === "condition" ? x.key : (x.sub || ""));
+          items.push(option(x.url, [label, extra, el("span", "n", x.weight.toLocaleString() + " sig.")]));
+        }
+      }
+      if (r.groups.length) items.push(option("/search?q=" + encodeURIComponent(q), [el("span", "all", "All results for “" + q + "” →")]));
+      list.replaceChildren(...items);
       list.hidden = !items.length;
       input.setAttribute("aria-expanded", String(!!items.length));
       active = -1;
@@ -56,9 +67,9 @@ function suggest(input) {
   });
   input.addEventListener("keydown", (e) => {
     if (list.hidden) return;
-    if (e.key === "ArrowDown") { e.preventDefault(); highlight(Math.min(active + 1, items.length - 1)); }
+    if (e.key === "ArrowDown") { e.preventDefault(); highlight(Math.min(active + 1, options.length - 1)); }
     else if (e.key === "ArrowUp") { e.preventDefault(); highlight(Math.max(active - 1, -1)); }
-    else if (e.key === "Enter" && active >= 0) { e.preventDefault(); go(items[active]); }
+    else if (e.key === "Enter" && active >= 0) { e.preventDefault(); location.href = options[active].url; }
     else if (e.key === "Escape") close();
   });
   input.addEventListener("blur", () => setTimeout(close, 100));

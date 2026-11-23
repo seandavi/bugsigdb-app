@@ -1,27 +1,47 @@
 {% extends "base.html" %}
-{% from "_macros.html" import rank, split %}
+{% from "_macros.html" import rank %}
 {% block title %}“{{ q }}” · BugSigDB Explorer{% endblock %}
+{% macro hit(x) -%}
+<a href="{{ x.url }}" class="result">
+  <span class="result-name">
+    {%- if x.kind == 'taxon' %}<span class="tax{{ ' it' if x.sub in ITALIC_RANKS }}">{{ x.label }}</span> {{ rank(x.sub) }}
+    {%- elif x.kind == 'study' %}<span>{{ x.label|rich }}</span>
+    {%- else %}<span>{{ x.label }}</span>{% endif -%}
+  </span>
+  <span class="result-meta">
+    {%- if x.kind == 'condition' %}<span class="mono">{{ x.key }}</span> · {% elif x.kind == 'study' and x.sub %}<i>{{ x.sub }}</i> · {% elif x.kind == 'taxon' %}NCBI {{ x.key }} · {% endif -%}
+    {{ x.weight|num }} signature{{ '' if x.weight == 1 else 's' }}
+  </span>
+</a>
+{%- endmacro %}
 {% block main %}
 <div class="wrap page">
-  <h1 class="page-title">{{ results|length }}{{ '+' if results|length == 50 }} taxa match “{{ q }}”</h1>
-  {% if results %}
-  <ol class="results">
-    {% for t in results %}
-    <li>
-      <a href="/taxon/{{ t.tax_id }}" class="result">
-        <span class="result-name"><span class="tax{{ ' it' if t.rank in ITALIC_RANKS }}">{{ t.name }}</span> {{ rank(t.rank) }}</span>
-        <span class="result-meta">{{ t.signatures|num }} signatures · NCBI {{ t.tax_id }}</span>
-        <span class="result-bar">{{ split(t.n_increased, t.n_decreased, label=false) }}</span>
-      </a>
-    </li>
+  {% set total = r.groups|sum(attribute='total') %}
+  <h1 class="page-title">{{ total|num }} result{{ '' if total == 1 else 's' }} for “{{ q }}”</h1>
+  <nav class="seg kindtabs" aria-label="Result type">
+    <a href="/search?q={{ q|urlq }}"{% if not kind %} aria-current="page"{% endif %}>All</a>
+    {% for k, label in KIND_LABELS.items() %}
+    {% set g = r.groups|selectattr('kind', 'equalto', k)|first %}
+    <a href="/search?q={{ q|urlq }}&amp;kind={{ k }}"{% if kind == k %} aria-current="page"{% endif %}>{{ label }}{% if g %} <small>{{ g.total|num }}</small>{% endif %}</a>
     {% endfor %}
-  </ol>
+  </nav>
+
+  {% for g in r.groups %}
+  <section class="rgroup">
+    {% if not kind %}<h2>{{ KIND_LABELS[g.kind] }} <small>{{ g.total|num }}</small></h2>{% endif %}
+    <ol class="results">
+      {% for x in g.results %}<li>{{ hit(x) }}</li>{% endfor %}
+    </ol>
+    {% if not kind and g.total > g.results|length %}
+    <p class="more-link"><a href="/search?q={{ q|urlq }}&amp;kind={{ g.kind }}">All {{ g.total|num }} {{ KIND_LABELS[g.kind]|lower }} →</a></p>
+    {% endif %}
+  </section>
   {% else %}
   <div class="empty">
-    <p>No BugSigDB taxon matches that name. Taxa are named as in current NCBI taxonomy
-      (e.g. <a href="/search?q=Segatella" class="it">Segatella copri</a>, formerly <i>Prevotella copri</i>),
-      and only taxa that appear in a signature are included.</p>
+    <p>Nothing matches. Search covers taxon names, condition names, and study titles, authors, journals and keywords,
+      plus exact IDs: NCBI tax ID, PMID, DOI, EFO/MONDO ID, or <code>bsdb:study/experiment/signature</code>.
+      Taxa use current NCBI names (<a href="/search?q=Segatella" class="it">Segatella copri</a>, formerly <i>Prevotella copri</i>).</p>
   </div>
-  {% endif %}
+  {% endfor %}
 </div>
 {% endblock %}

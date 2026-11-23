@@ -25,10 +25,19 @@ mcp = MCPServer(
     instructions="BugSigDB: published microbiome signatures (sets of taxa reported increased or decreased "
     "in a case group vs a control group), with bugphyzz traits for each taxon. "
     "Hierarchy: study > experiment (one comparison: condition, body site, groups) > signature (direction + taxa). "
-    "Find taxa with search_taxa, studies with search_studies, conditions with search_conditions. "
+    "Start with search (any entity, any ID); search_taxa, search_studies and search_conditions narrow to one kind. "
     "get_condition ranks taxa by how consistently they go up or down in that condition (sign test). "
     "Study IDs are usually PMIDs; signature IDs look like bsdb:<study>/<experiment>/<signature>.",
 )
+
+
+@mcp.tool()
+async def search(q: str, per_kind: int = 5, kind: str | None = None) -> dict[str, Any]:
+    """Search everything at once: taxa, conditions and studies by name, title, author, keyword, or by exact ID
+    (NCBI tax ID, PMID, DOI or DOI prefix, EFO/MONDO ID). Tolerates typos. Results are grouped by kind,
+    best group first, each with a total count. `kind` limits to one of taxon, condition, study.
+    A query like bsdb:<study>/<experiment>/<signature> returns a `redirect` path instead."""
+    return await queries.search(pool(), q, min(per_kind, 50), kind)
 
 
 @mcp.tool()
@@ -110,6 +119,14 @@ def found(x, what: str):
     if x is None:
         raise HTTPException(404, f"{what} not found")
     return x
+
+
+@app.get("/api/search", tags=["search"])
+async def api_search(q: str, per_kind: int = 5, kind: str | None = None):
+    """Taxa, conditions and studies matching `q` (names, titles, authors, IDs; typo-tolerant), grouped by kind."""
+    if kind is not None and kind not in queries.SEARCH_KINDS:
+        raise HTTPException(422, f"kind must be one of {', '.join(queries.SEARCH_KINDS)}")
+    return await queries.search(pool(), q, min(per_kind, 200), kind)
 
 
 @app.get("/api/taxa", tags=["taxa"])

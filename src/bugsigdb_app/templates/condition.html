@@ -48,12 +48,12 @@
         <h2>Taxa</h2>
         <div class="filters">{{ filterbox("Filter taxa…", "tf-taxa") }}</div>
       </div>
-      <p class="hint">Taxa named in at least two signatures for this condition, ranked by how consistently they move one way
-        (two-sided sign test of increased vs decreased signatures; not corrected for multiple testing, and signatures from one study are not independent).
-        Counts are taxa as curated, without roll-up to parent taxa. {% if c.n_taxa > c.taxa|length %}Top {{ c.taxa|length }} of {{ c.n_taxa|num }}.{% endif %}</p>
+      <p class="hint">Taxa named in at least two signatures for this condition, most-reported first; bars split those
+        signatures by direction. Counts use taxa as curated (a genus row counts signatures that name the genus, not its species).
+        {% if c.n_taxa > c.taxa|length %}Top {{ c.taxa|length }} of {{ c.n_taxa|num }}.{% endif %}</p>
       <div class="table-wrap">
         <table class="sigs ctaxa">
-          <thead><tr><th scope="col">Taxon</th><th scope="col" class="dvh"><span class="down">◀ decreased</span> <span class="up">increased ▶</span></th><th scope="col" class="num">Studies</th><th scope="col" class="num">p</th></tr></thead>
+          <thead><tr><th scope="col">Taxon</th><th scope="col" class="dvh"><span class="down">◀ decreased</span> <span class="up">increased ▶</span></th><th scope="col" class="num">Studies</th></tr></thead>
           <tbody>
           {% for t in c.taxa %}
           <tr>
@@ -65,7 +65,6 @@
               </span>
             </td>
             <td class="num">{{ t.studies }}</td>
-            <td class="num{{ ' strong' if t.p < 0.01 }}">{{ t.p|pfmt }}</td>
           </tr>
           {% endfor %}
           </tbody>

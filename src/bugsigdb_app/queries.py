@@ -5,6 +5,8 @@ species. bsdb.taxon_ancestor (closure, self at depth 0) makes that one join.
 """
 
 import math
+import re
+from urllib.parse import quote
 from typing import Any
 
 import asyncpg
@@ -253,7 +255,7 @@ async def list_conditions(pool: asyncpg.Pool, q: str = "", limit: int = 2000) ->
 
 
 async def get_condition(pool: asyncpg.Pool, ontology_id: str, taxa_limit: int = 150,
-                        min_signatures: int = 2) -> dict[str, Any] | None:
+                        min_signatures: int = 2, order: str = "consistency") -> dict[str, Any] | None:
     """A condition: its studies, body sites, and the taxa reported in its signatures, with how
     consistently each goes up or down (sign test). Counts are of directly linked taxa, not roll-ups."""
     async with pool.acquire() as c:
@@ -287,9 +289,79 @@ async def get_condition(pool: asyncpg.Pool, ontology_id: str, taxa_limit: int = 
     taxa = rows(taxa)
     for t in taxa:
         t["p"] = sign_test(t["increased"], t["decreased"])
-    taxa.sort(key=lambda t: (t["p"], -(t["increased"] + t["decreased"]), t["name"]))
+    if order == "signatures":  # most-reported first
+        taxa.sort(key=lambda t: (-(t["increased"] + t["decreased"]), t["p"], t["name"]))
+    else:  # most consistent direction first
+        taxa.sort(key=lambda t: (t["p"], -(t["increased"] + t["decreased"]), t["name"]))
     n_sig = sum(s["n_signatures"] for s in studies)
     return {**dict(cond), "n_studies": len(studies), "n_signatures": n_sig,
             "n_experiments": sum(s["n_experiments"] for s in studies),
             "studies": rows(studies), "body_sites": rows(body_sites),
             "n_taxa": len(taxa), "taxa": taxa[:taxa_limit]}
+
+
+SEARCH_KINDS = ("taxon", "condition", "study")
+BSDB_ID = re.compile(r"^bsdb:(?P<study>[^/]+)/(?P<experiment>\d+)(?:/(?P<signature>\d+))?$", re.I)
+
+
+def entity_url(kind: str, key: str) -> str:
+    return {"taxon": "/taxon/", "condition": "/condition/", "study": "/study/"}[kind] + quote(key, safe=":")
+
+
+async def search(pool: asyncpg.Pool, q: str, per_kind: int = 5, kind: str | None = None) -> dict[str, Any]:
+    """Search taxa, conditions and studies at once.
+
+    Exact identifiers win (NCBI tax ID, PMID, DOI, EFO/MONDO ID, bsdb:study/experiment[/signature]);
+    otherwise names and titles match by substring or, for typos, trigram word similarity.
+    Returns {"query", "redirect" (URL when the query is an exact signature/experiment ID),
+    "groups": [{"kind", "total", "results": [{kind, key, label, sub, weight, url}]}]}.
+    """
+    q = q.strip()
+    out: dict[str, Any] = {"query": q, "redirect": None, "groups": []}
+    if not q:
+        return out
+    if m := BSDB_ID.match(q):
+        e = f"/study/{quote(m['study'], safe='')}/experiment/{m['experiment']}"
+        out["redirect"] = e + (f"/signature/{m['signature']}" if m["signature"] else "")
+        return out
+    # numbers and IDs match exactly; free text matches by substring or similarity
+    lq = q.lower()
+    is_id = bool(re.fullmatch(r"[0-9]+|[a-z]+[:_][0-9]+|10\..+", lq))
+    # two indexed branches: exact identifiers (DOIs also by prefix), and free text (substring or trigram)
+    rs = await pool.fetch("""
+        with hits as (
+            select d.*, 0 as tier from bsdb.search_doc d
+            where d.ids @> array[$1] or ($1 like '10.%' and d.kind = 'study' and exists (
+                select 1 from unnest(d.ids) x where x like $1 || '%'))
+            union all
+            select d.*, case when lower(d.label) = $1 then 1
+                             when lower(d.label) like $1 || '%' then 2
+                             when lower(d.text) like '%' || $1 || '%' then 3
+                             else 4 end
+            from bsdb.search_doc d
+            where not $2 and (lower(d.text) like '%' || $1 || '%'
+                              or (length($1) >= 4 and $1 operator(public.<%) lower(d.text)))
+        ),
+        best as (  -- an entity can hit both branches; keep its best tier
+            select distinct on (kind, key) kind, key, label, sub, weight, tier,
+                   public.word_similarity($1, lower(text)) as wsim, public.similarity($1, lower(label)) as lsim
+            from hits where $3::text is null or kind = $3
+            order by kind, key, tier
+        ),
+        ranked as (
+            select *, row_number() over (partition by kind order by tier,
+                -- equally good text matches: most-studied first; fuzzy matches: closest spelling first
+                case when tier < 4 then weight end desc nulls last, wsim desc, lsim desc, weight desc, label) as rn,
+                   count(*) over (partition by kind) as total
+            from best
+        )
+        select * from ranked where rn <= $4 order by kind, rn""", lq, is_id, kind, per_kind)
+    groups: dict[str, dict] = {}
+    for r in rs:
+        g = groups.setdefault(r["kind"], {"kind": r["kind"], "total": r["total"], "results": []})
+        g["results"].append({k: r[k] for k in ("kind", "key", "label", "sub", "weight", "tier")}
+                            | {"url": entity_url(r["kind"], r["key"])})
+    # best group first: the one holding the best-tier hit, then by our fixed order
+    best = {k: min(x["tier"] for x in g["results"]) for k, g in groups.items()}
+    out["groups"] = sorted(groups.values(), key=lambda g: (best[g["kind"]], SEARCH_KINDS.index(g["kind"])))
+    return out

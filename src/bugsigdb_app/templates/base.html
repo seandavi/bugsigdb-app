@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}BugSigDB Explorer{% endblock %}</title>
   <meta name="description" content="{% block description %}Microbial signatures from BugSigDB and traits from bugphyzz, organized by taxon.{% endblock %}">
-  <link rel="stylesheet" href="/static/app.css?v=10">
+  <link rel="stylesheet" href="/static/app.css?v=12">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🦠</text></svg>">
-  <script src="/static/app.js?v=3" defer></script>
+  <script src="/static/app.js?v=4" defer></script>
 </head>
 <body>
   <a class="skip" href="#main">Skip to content</a>
@@ -16,8 +16,8 @@
       <a class="brand" href="/"><span class="brand-mark" aria-hidden="true"></span>BugSigDB <span>Explorer</span></a>
       {% block topsearch %}
       <form class="search search-sm" action="/search" role="search">
-        <label class="sr-only" for="q-top">Search taxa</label>
-        <input id="q-top" name="q" type="search" placeholder="Search taxa…" autocomplete="off" data-suggest>
+        <label class="sr-only" for="q-top">Search</label>
+        <input id="q-top" name="q" type="search" placeholder="Search taxa, conditions, studies…" autocomplete="off" data-suggest>
       </form>
       {% endblock %}
       <nav class="topnav" aria-label="Main">

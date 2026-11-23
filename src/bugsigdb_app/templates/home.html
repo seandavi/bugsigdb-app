@@ -9,16 +9,16 @@
     <p class="lede">Every BugSigDB signature that mentions a taxon or its descendants, the conditions
       and body sites behind them, and bugphyzz physiology traits — on one page.</p>
     <form class="search search-lg" action="/search" role="search">
-      <label class="sr-only" for="q">Search taxa</label>
+      <label class="sr-only" for="q">Search</label>
       <svg class="search-icon" aria-hidden="true" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-      <input id="q" name="q" type="search" placeholder="Akkermansia, Faecalibacterium prausnitzii, 816…" autocomplete="off" autofocus data-suggest>
+      <input id="q" name="q" type="search" placeholder="A taxon, condition, study, author, PMID…" autocomplete="off" autofocus data-suggest>
       <button type="submit">Search</button>
     </form>
     <p class="try">Try
       <a href="/taxon/239935" class="it">Akkermansia muciniphila</a>,
-      <a href="/taxon/853" class="it">Faecalibacterium prausnitzii</a>,
-      <a href="/taxon/1678" class="it">Bifidobacterium</a> or
-      <a href="/taxon/976">Bacteroidota</a>.</p>
+      <a href="/condition/MONDO:0005575">colorectal cancer</a>,
+      <a href="/search?q=parkinson">parkinson</a> or
+      <a href="/search?q=10.1038%2Fs41591">a DOI prefix</a>.</p>
   </div>
 </section>
 
@@ -53,7 +53,7 @@ curl {{ request.base_url }}api/taxa/239934</code></pre>
     </div>
     <div class="panel">
       <h3>MCP server</h3>
-      <p>Streamable HTTP, no auth. Tools: <code>search_taxa</code>, <code>get_taxon</code>, <code>search_studies</code>, <code>get_study</code>, <code>get_experiment</code>, <code>get_signature</code>, <code>search_conditions</code>, <code>get_condition</code>.</p>
+      <p>Streamable HTTP, no auth. Tools: <code>search</code>, <code>search_taxa</code>, <code>get_taxon</code>, <code>search_studies</code>, <code>get_study</code>, <code>get_experiment</code>, <code>get_signature</code>, <code>search_conditions</code>, <code>get_condition</code>.</p>
       <pre><code>claude mcp add --transport http bugsigdb {{ request.base_url }}mcp</code></pre>
     </div>
   </div>

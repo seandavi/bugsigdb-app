@@ -179,7 +179,7 @@ pre { background: var(--surface-2); border: 1px solid var(--line); border-radius
 .page-title { font-size: 1.6rem; margin-bottom: 1.4rem; }
 .results { list-style: none; margin: 0; padding: 0; display: grid; gap: .5rem; }
 .result {
-  display: grid; grid-template-columns: 1fr auto 160px; align-items: center; gap: 1.2rem;
+  display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 1.2rem;
   color: inherit; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: .8rem 1.1rem;
 }
 .result:hover { text-decoration: none; border-color: color-mix(in srgb, var(--brand) 45%, var(--line)); }
@@ -317,9 +317,8 @@ section[id] { scroll-margin-top: 120px; }
   .ctaxa { table-layout: fixed; }
   .ctaxa th:nth-child(1) { width: 42%; }
   .ctaxa tbody td:first-child { overflow-wrap: break-word; font-size: .84rem; }
-  .ctaxa td:nth-child(4) { font-size: .8rem; padding-inline: .3rem .8rem; }
-  .ctaxa th:nth-child(3), .ctaxa td:nth-child(3) { display: none; }
-  .ctaxa th:nth-child(4) { width: 4.6rem; }
+  .ctaxa td:nth-child(3) { font-size: .8rem; padding-inline: .3rem .8rem; }
+  .ctaxa th:nth-child(3) { width: 4.2rem; }
   .ctaxa .dvcell { min-width: 0; width: auto; padding-inline: .3rem; }
   .ctaxa th.dvh { font-size: .62rem; }
   .ctaxa td:first-child, .ctaxa th:first-child { padding-left: 1rem; }
@@ -391,3 +390,18 @@ section[id] { scroll-margin-top: 120px; }
   .sigcols, .twocol { grid-template-columns: 1fr; }
 }
 .ctaxa td:first-child { white-space: nowrap; }
+
+/* unified search */
+.kindtabs { margin-bottom: 1.6rem; }
+.kindtabs a { font-size: .88rem; font-weight: 600; color: var(--muted); border-radius: 999px; padding: .3rem .9rem; }
+.kindtabs a:hover { text-decoration: none; color: var(--text); }
+.kindtabs a[aria-current] { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+.kindtabs small { color: var(--muted); margin-left: .2rem; }
+.rgroup + .rgroup { margin-top: 2rem; }
+.rgroup h2 { font-size: 1.05rem; margin-bottom: .7rem; }
+.rgroup h2 small { color: var(--muted); font-weight: 600; margin-left: .3rem; }
+.more-link { margin: .7rem 0 0; font-weight: 600; }
+.suggest .grp { cursor: default; padding: .55rem .7rem .2rem; font-size: .7rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.suggest .grp:hover { background: none; }
+.suggest .lbl { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.suggest .all { color: var(--brand); font-weight: 600; font-size: .9rem; }
